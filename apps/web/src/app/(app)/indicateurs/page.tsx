@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import {
   GrilleIndicateurs,
@@ -101,6 +102,9 @@ export default async function PageIndicateurs({
             <Icone nom="courbe" />
             <span>{t("Afficher", "Show")}</span>
           </button>
+          <Link href="/indicateurs" className={classesBouton("discret")} prefetch={false}>
+            {t("Semaine en cours", "Current week")}
+          </Link>
         </div>
       </form>
       {f.corrigee ? (
@@ -168,12 +172,14 @@ export default async function PageIndicateurs({
                   langue={langue}
                 />
               ) : (
-                <p className="mp-texte-doux">
-                  {t(
+                <EtatErreur
+                  titre={t(
                     "Les alertes n'ont pas pu être calculées.",
                     "The alerts could not be computed.",
                   )}
-                </p>
+                  message={parMission ? parMission.message : ""}
+                  hrefReessayer={`/indicateurs?${requete}`}
+                />
               )}
             </div>
           </Carte>

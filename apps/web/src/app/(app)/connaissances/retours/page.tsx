@@ -78,10 +78,15 @@ export default async function PageRetours({
           }
         >
           <p>
-            {t(
-              "Un retour d'expérience s'ouvre automatiquement à la clôture d'une mission ; pour une mission clôturée avant cette fonction, ouvrez-le depuis la liste ci-dessous.",
-              "A lessons-learned review opens automatically when an engagement is closed; for an engagement closed before this feature, open it from the list below.",
-            )}
+            {sansRetour
+              ? t(
+                  "Un retour d'expérience s'ouvre automatiquement à la clôture d'une mission ; pour une mission clôturée avant cette fonction, ouvrez-le depuis la liste ci-dessous.",
+                  "A lessons-learned review opens automatically when an engagement is closed; for an engagement closed before this feature, open it from the list below.",
+                )
+              : t(
+                  "Un retour d'expérience s'ouvre automatiquement à la clôture d'une mission : clôturez une mission pour en voir apparaître un ici.",
+                  "A lessons-learned review opens automatically when an engagement is closed: close an engagement to see one appear here.",
+                )}
           </p>
         </EtatVide>
       ) : (
@@ -116,6 +121,16 @@ export default async function PageRetours({
         <PaginationCurseur
           hrefSuivante={r.donnees.curseur_suivant ? hrefRetours(r.donnees.curseur_suivant) : null}
           hrefDebut={curseur ? "/connaissances/retours" : null}
+        />
+      ) : null}
+      {!aOuvrir.ok ? (
+        <EtatErreur
+          titre={t(
+            "Les missions clôturées sans retour n'ont pas pu être chargées.",
+            "Closed engagements without a review could not be loaded.",
+          )}
+          message={aOuvrir.message}
+          hrefReessayer={hrefRetours(curseur)}
         />
       ) : null}
       {sansRetour ? (

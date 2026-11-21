@@ -82,6 +82,15 @@ export default async function PageDictionnaire({
             message={f.message}
             hrefReessayer="/methodes/dictionnaire"
           />
+        ) : f.donnees.elements.length === 0 ? (
+          <EtatVide titre={t("Aucun facteur de contexte.", "No context factor.")} icone="livre">
+            <p>
+              {t(
+                "Les facteurs décrivent le client ou la mission (secteur, taille…) et déclenchent les règles de modulation. Le standard CabinetPilot en fournit ; le cabinet peut ajouter les siens.",
+                "Factors describe the client or engagement (sector, size…) and trigger the modulation rules. The CabinetPilot standard provides some; the firm can add its own.",
+              )}
+            </p>
+          </EtatVide>
         ) : (
           <ul className="mp-liste-lignes">
             {f.donnees.elements.map((x) => (
@@ -135,9 +144,14 @@ export default async function PageDictionnaire({
         <h2 id="titre-taxonomies" className="mp-section__titre">
           {t("Taxonomies", "Taxonomies")}
         </h2>
-        <nav aria-label={t("Taxonomie", "Taxonomy")} className="mp-badges">
+        <nav aria-label={t("Taxonomie", "Taxonomy")} className="mp-filtre-segments">
           {TAXONOMIES.map((x) => (
-            <Link key={x} href={href(x)} aria-current={x === taxonomie ? "page" : undefined}>
+            <Link
+              key={x}
+              href={href(x)}
+              className="mp-onglets__lien"
+              aria-current={x === taxonomie ? "page" : undefined}
+            >
               {TAXONOMIE_LIBELLES[x]}
             </Link>
           ))}
@@ -149,7 +163,14 @@ export default async function PageDictionnaire({
             hrefReessayer={href(taxonomie, curseur)}
           />
         ) : tx.donnees.elements.length === 0 ? (
-          <EtatVide titre={t("Aucune entrée.", "No entry.")} icone="livre" />
+          <EtatVide titre={t("Aucune entrée.", "No entry.")} icone="livre">
+            <p>
+              {t(
+                "Cette taxonomie ne contient encore aucune entrée. Choisissez-en une autre ci-dessus.",
+                "This taxonomy has no entry yet. Pick another one above.",
+              )}
+            </p>
+          </EtatVide>
         ) : (
           <ul className="mp-liste-simple">
             {tx.donnees.elements.map((e) => (

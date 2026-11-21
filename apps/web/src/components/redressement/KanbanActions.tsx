@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import {
   RED_COLONNES_KANBAN,
   type RedActionVue,
@@ -240,6 +240,8 @@ function CarteAction({
   const { rafraichir, enAttente } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const idPanneau = useId();
   const [envoiEnCours, setEnCours] = useState(false);
   // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
   const enCours = envoiEnCours || enAttente;
@@ -250,12 +252,18 @@ function CarteAction({
     const majs = majsRangApresDeplacement(colonne, action.id, sens);
     if (majs === null) return;
     setErreur(null);
+    setConfirmation(null);
     setEnCours(true);
     try {
       // Le rang est une clé de tri : les cartes touchées sont mises à jour l'une après l'autre.
       for (const m of majs) {
         await api.post(cheminDeplacementAction(m.id), { statut: action.statut, rang: m.rang });
       }
+      setConfirmation(
+        sens === "monter"
+          ? t(`Action ${action.numero} montée.`, `Action ${action.numero} moved up.`)
+          : t(`Action ${action.numero} descendue.`, `Action ${action.numero} moved down.`),
+      );
       rafraichir();
     } catch (e) {
       setErreur(messageRedressement(e, langue));
@@ -300,6 +308,12 @@ function CarteAction({
           {t("Terminée le", "Completed on")} {formaterDate(action.termine_le, "UTC", langue)}
         </p>
       ) : null}
+      <p
+        role="status"
+        className={confirmation ? "mp-texte-petit mp-texte-doux" : "mp-visuellement-cache"}
+      >
+        {confirmation}
+      </p>
       {erreur ? (
         <Alerte ref={refAlerte} tonalite="danger" titre={t("Déplacement refusé", "Move refused")}>
           <p>{erreur}</p>
@@ -344,6 +358,7 @@ function CarteAction({
             <Bouton
               variante="secondaire"
               aria-expanded={panneau === "deplacer"}
+              aria-controls={panneau === "deplacer" ? idPanneau : undefined}
               onClick={() => bascule("deplacer")}
             >
               {t("Déplacer vers…", "Move to…")}
@@ -353,6 +368,7 @@ function CarteAction({
             <Bouton
               variante="secondaire"
               aria-expanded={panneau === "modifier"}
+              aria-controls={panneau === "modifier" ? idPanneau : undefined}
               onClick={() => bascule("modifier")}
             >
               {t("Modifier", "Edit")}
@@ -361,6 +377,7 @@ function CarteAction({
           <Bouton
             variante="secondaire"
             aria-expanded={panneau === "commenter"}
+            aria-controls={panneau === "commenter" ? idPanneau : undefined}
             onClick={() => bascule("commenter")}
           >
             {t("Commenter", "Comment")}
@@ -368,7 +385,7 @@ function CarteAction({
         </div>
       ) : null}
       {panneau ? (
-        <div className="mp-red-action__panneau">
+        <div id={idPanneau} className="mp-red-action__panneau">
           {panneau === "deplacer" ? (
             <FormulaireDeplacement action={action} aujourdhui={outils.aujourdhui} />
           ) : panneau === "modifier" ? (
