@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { ConfirmationAction } from "../../../components/plateforme/ConfirmationAction";
@@ -10,7 +10,9 @@ import { Alerte } from "../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
 import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
+import { Champ } from "../../../components/ui/Champ";
 import { EtatVide } from "../../../components/ui/EtatListe";
+import { Select } from "../../../components/ui/Select";
 import { Tableau, type ColonneTableau } from "../../../components/ui/Tableau";
 import { formaterDate } from "../../../lib/format";
 import {
@@ -22,7 +24,10 @@ import {
 import { changerEtatCabinet } from "../../../lib/plateforme-client";
 import { cheminCabinetPlateforme } from "../../../lib/plateforme-routes";
 import {
+  filtrerCabinets,
   libelleComptePremierAssocie,
+  SEUIL_FILTRES_CABINETS,
+  type FiltreEtatCabinet,
   libelleUtilisateursCabinet,
   texteActionEtat,
 } from "./console-logique";
@@ -48,6 +53,13 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
   const [aConfirmer, setAConfirmer] = useState<CabinetListe | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [erreurEtat, setErreurEtat] = useState<string | null>(null);
+  const [recherche, setRecherche] = useState("");
+  const [filtreEtat, setFiltreEtat] = useState<FiltreEtatCabinet>("tous");
+  const visibles = useMemo(
+    () => filtrerCabinets(cabinets, recherche, filtreEtat),
+    [cabinets, recherche, filtreEtat],
+  );
+  const filtresAffiches = cabinets.length >= SEUIL_FILTRES_CABINETS;
   // Rend le focus au bouton de création quand un panneau se ferme (sinon il tombe sur <body>).
   const boutonCreer = useRef<HTMLButtonElement>(null);
   const [retourFocus, setRetourFocus] = useState(0);
@@ -263,12 +275,67 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
           </p>
         </EtatVide>
       ) : (
-        <Tableau
-          legende={t("Liste des cabinets", "List of firms")}
-          colonnes={colonnes}
-          lignes={cabinets}
-          cleLigne={(c) => c.id}
-        />
+        <>
+          {filtresAffiches ? (
+            <div className="mp-console__filtres" role="search">
+              <Champ
+                libelle={t("Rechercher un cabinet", "Search for a firm")}
+                type="search"
+                name="recherche"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={t("Nom du cabinet", "Firm name")}
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+              />
+              <Select
+                libelle={t("État", "Status")}
+                name="etat"
+                value={filtreEtat}
+                onChange={(e) => setFiltreEtat(e.target.value as FiltreEtatCabinet)}
+                options={[
+                  { valeur: "tous", libelle: t("Tous", "All") },
+                  { valeur: "actifs", libelle: t("Actifs", "Active") },
+                  { valeur: "desactives", libelle: t("Désactivés", "Deactivated") },
+                ]}
+              />
+              <p className="mp-texte-doux mp-console__compte" role="status" aria-live="polite">
+                {t(
+                  `${visibles.length} cabinet(s) sur ${cabinets.length}`,
+                  `${visibles.length} of ${cabinets.length} firm(s)`,
+                )}
+              </p>
+            </div>
+          ) : null}
+          {visibles.length === 0 ? (
+            <EtatVide
+              titre={t("Aucun cabinet ne correspond.", "No firm matches.")}
+              icone="recherche"
+              action={
+                <Bouton
+                  variante="secondaire"
+                  onClick={() => {
+                    setRecherche("");
+                    setFiltreEtat("tous");
+                  }}
+                >
+                  {t("Réinitialiser les filtres", "Reset filters")}
+                </Bouton>
+              }
+            >
+              <p>
+                {t("Modifiez la recherche ou l'état choisi.", "Change the search or the status.")}
+              </p>
+            </EtatVide>
+          ) : (
+            <Tableau
+              legende={t("Liste des cabinets", "List of firms")}
+              colonnes={colonnes}
+              lignes={visibles}
+              cleLigne={(c) => c.id}
+            />
+          )}
+        </>
       )}
     </div>
   );

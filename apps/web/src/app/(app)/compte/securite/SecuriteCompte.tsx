@@ -481,6 +481,7 @@ function FormulaireConfirmation({
         type="password"
         autoComplete="current-password"
         required
+        autoFocus
         value={motDePasse}
         onChange={(e) => setMotDePasse(e.target.value)}
         erreur={f.erreurs.mot_de_passe}
@@ -496,8 +497,20 @@ function FormulaireConfirmation({
         autoComplete={facteur === "totp" ? "one-time-code" : "off"}
         maxLength={facteur === "totp" ? 7 : 40}
         required
+        spellCheck={false}
+        className={facteur === "totp" ? "mp-champ-code" : undefined}
+        aide={
+          facteur === "totp"
+            ? t("Le code change toutes les 30 secondes.", "The code changes every 30 seconds.")
+            : t(
+                "Format : abcde-12345 (tirets et majuscules acceptés).",
+                "Format: abcde-12345 (hyphens and capital letters accepted).",
+              )
+        }
         value={code}
-        onChange={(e) => setCode(e.target.value)}
+        onChange={(e) =>
+          setCode(facteur === "totp" ? e.target.value.replace(/[^\d ]/g, "") : e.target.value)
+        }
         erreur={f.erreurs.code}
       />
       <div>

@@ -148,7 +148,7 @@ export function FeriesParDefaut({ annee }: { annee: number }) {
         refAlerte={f.refAlerte}
         titreErreur={t("Pré-remplissage impossible", "Unable to pre-fill")}
       />
-      <div>
+      <div className="mp-pile">
         <Bouton
           variante="secondaire"
           icone="calendrier"
@@ -173,6 +173,12 @@ export function FeriesParDefaut({ annee }: { annee: number }) {
             `Pre-fill the public holidays ${annee} for the country`,
           )}
         </Bouton>
+        <p className="mp-texte-doux">
+          {t(
+            "Ajoute les jours fériés civils ; les fêtes lunaires restent à saisir à la main.",
+            "Adds the civil public holidays; lunar holidays must still be entered by hand.",
+          )}
+        </p>
       </div>
     </div>
   );

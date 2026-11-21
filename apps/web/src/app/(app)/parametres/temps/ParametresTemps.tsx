@@ -196,8 +196,20 @@ export function BasculeActivite({ activite }: { activite: ActiviteInterne }) {
           `${actif ? "Deactivate" : "Reactivate"} the activity ${activite.libelle}`,
         )}
         onClick={() =>
-          f.envoyer({ ok: true, charge: { actif: !actif } }, (c) =>
-            api.patch(`/api/activites-internes/${encodeURIComponent(activite.id)}`, c),
+          f.envoyer(
+            { ok: true, charge: { actif: !actif } },
+            (c) => api.patch(`/api/activites-internes/${encodeURIComponent(activite.id)}`, c),
+            {
+              succes: actif
+                ? t(
+                    `Activité ${activite.libelle} désactivée.`,
+                    `Activity ${activite.libelle} deactivated.`,
+                  )
+                : t(
+                    `Activité ${activite.libelle} réactivée.`,
+                    `Activity ${activite.libelle} reactivated.`,
+                  ),
+            },
           )
         }
       >
@@ -205,6 +217,7 @@ export function BasculeActivite({ activite }: { activite: ActiviteInterne }) {
       </Bouton>
       <RetourFormulaire
         erreur={f.erreurGlobale}
+        succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur={t("Modification impossible", "Could not update")}
       />

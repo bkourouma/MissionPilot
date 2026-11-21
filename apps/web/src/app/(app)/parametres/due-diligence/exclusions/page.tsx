@@ -8,7 +8,9 @@ import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
+import { classesBouton } from "../../../../../components/ui/Bouton";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
+import { Icone } from "../../../../../components/ui/Icone";
 import { droitsDd, hrefListesExclusion } from "../../../../../lib/due-diligence";
 import {
   chargerInvestisseurs,
@@ -46,6 +48,14 @@ export default async function PageListesExclusionDd() {
           "Activités, secteurs et pays exclus pour un investisseur ou pour tous. Chaque revue environnementale et sociale applique la version courante d'une liste.",
           "Activities, sectors and countries excluded for one investor or for all. Each environmental and social review applies the current version of a list.",
         )}
+        actions={
+          droits.gererReferentiel ? (
+            <a href="#nouvelle-liste" className={classesBouton("primaire")}>
+              <Icone nom="plus" />
+              <span>{t("Nouvelle liste", "New list")}</span>
+            </a>
+          ) : undefined
+        }
       />
       {taxonomies.erreur ? (
         <Alerte
@@ -128,7 +138,7 @@ export default async function PageListesExclusionDd() {
         </ul>
       )}
       {droits.gererReferentiel ? (
-        <Carte titre={t("Nouvelle liste", "New list")}>
+        <Carte titre={t("Nouvelle liste", "New list")} id="nouvelle-liste">
           <FormulaireListeExclusion
             secteurs={taxonomies.secteurs}
             pays={taxonomies.pays}

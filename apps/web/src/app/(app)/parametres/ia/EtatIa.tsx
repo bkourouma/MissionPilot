@@ -162,7 +162,10 @@ export function TestConnexionIa({
           )}
           options={optionsTaches(langue)}
           value={tache}
-          onChange={(ev) => setTache(ev.target.value as TacheGenerative)}
+          onChange={(ev) => {
+            setTache(ev.target.value as TacheGenerative);
+            setResultat(null);
+          }}
         />
       </div>
       <div className="mp-actions-formulaire">

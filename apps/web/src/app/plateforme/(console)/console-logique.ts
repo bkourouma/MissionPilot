@@ -83,3 +83,29 @@ export function libelleComptePremierAssocie(
     `First partner of ${cabinet}: ${associe.nom} (${associe.email})`,
   );
 }
+
+export type FiltreEtatCabinet = "tous" | "actifs" | "desactives";
+
+/** Seuil à partir duquel la recherche et le filtre apparaissent (sinon : bruit inutile). */
+export const SEUIL_FILTRES_CABINETS = 6;
+
+const normaliser = (s: string): string =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+/** Filtre local de la liste des cabinets : nom (sans accents ni casse) et état. */
+export function filtrerCabinets<C extends Pick<CabinetListe, "nom" | "actif">>(
+  cabinets: readonly C[],
+  recherche: string,
+  etat: FiltreEtatCabinet,
+): C[] {
+  const q = normaliser(recherche);
+  return cabinets.filter(
+    (c) =>
+      (etat === "tous" || (etat === "actifs" ? c.actif : !c.actif)) &&
+      (q === "" || normaliser(c.nom).includes(q)),
+  );
+}

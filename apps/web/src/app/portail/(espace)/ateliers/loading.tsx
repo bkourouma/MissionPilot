@@ -4,6 +4,12 @@ import { obtenirT } from "../../../../lib/i18n/serveur";
 export default async function Chargement() {
   const t = await obtenirT();
   return (
-    <Squelette avecTitre lignes={4} libelle={t("Chargement des ateliers…", "Loading workshops…")} />
+    <div className="mp-page">
+      <Squelette
+        avecTitre
+        lignes={4}
+        libelle={t("Chargement des ateliers…", "Loading workshops…")}
+      />
+    </div>
   );
 }
