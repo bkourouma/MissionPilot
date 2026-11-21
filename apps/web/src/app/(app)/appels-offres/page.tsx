@@ -6,6 +6,7 @@ import {
   ImportCsvAo,
 } from "../../../components/appels-offres/FormulaireFicheAo";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../components/ui/Bouton";
 import { Carte } from "../../../components/ui/Carte";
 import { Champ } from "../../../components/ui/Champ";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
@@ -65,9 +66,16 @@ export default async function PageAppelsOffres({
           "Detection, partner go/no-go, compliance matrix and backward schedule through submission.",
         )}
         actions={
-          <Link href="/appels-offres/veille" className="mp-lien-ligne">
-            {t("Veille", "Monitoring")}
-          </Link>
+          <>
+            <Link href="/appels-offres/veille" className={classesBouton("secondaire")}>
+              {t("Veille", "Monitoring")}
+            </Link>
+            {droits.gerer ? (
+              <a href="#nouvelle-fiche" className={classesBouton("primaire")}>
+                {t("Nouvelle fiche", "New record")}
+              </a>
+            ) : null}
+          </>
         }
       />
 
@@ -102,7 +110,7 @@ export default async function PageAppelsOffres({
 
       {droits.gerer ? (
         <div className="mp-grille-cartes">
-          <Carte titre={t("Nouvelle fiche", "New record")}>
+          <Carte id="nouvelle-fiche" titre={t("Nouvelle fiche", "New record")}>
             <FormulaireFicheAo />
           </Carte>
           <Carte titre={t("Importer des fiches", "Import records")}>

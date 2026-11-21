@@ -10,6 +10,7 @@ import { Bouton, classesBouton } from "../../../../components/ui/Bouton";
 import { Champ } from "../../../../components/ui/Champ";
 import { Icone } from "../../../../components/ui/Icone";
 import { ZoneTexte } from "../../../../components/ui/ZoneTexte";
+import { NOMBRE_QUESTIONS_IA_MAX, NOMBRE_QUESTIONS_IA_MIN } from "@missionpilot/shared";
 import { api } from "../../../../lib/api";
 import { messageQuestionnaire, type VersionDetail } from "../../../../lib/questionnaires";
 import { suggererIdentifiant } from "../../../../lib/questionnaires-definition";
@@ -106,8 +107,14 @@ export function FormulaireGenerationIa() {
           type="number"
           inputMode="numeric"
           required
+          min={NOMBRE_QUESTIONS_IA_MIN}
+          max={NOMBRE_QUESTIONS_IA_MAX}
           value={s.nombre_questions}
           erreur={f.erreurs.nombre_questions}
+          aide={t(
+            `Entre ${NOMBRE_QUESTIONS_IA_MIN} et ${NOMBRE_QUESTIONS_IA_MAX} : l'IA peut en proposer moins.`,
+            `Between ${NOMBRE_QUESTIONS_IA_MIN} and ${NOMBRE_QUESTIONS_IA_MAX}: the AI may propose fewer.`,
+          )}
           onChange={(e) => maj({ nombre_questions: e.target.value })}
         />
         <Champ
@@ -156,7 +163,10 @@ export function FormulaireGenerationIa() {
           type="submit"
           icone="plus"
           chargement={f.enCours}
-          texteChargement={t("Génération en cours…", "Generating…")}
+          texteChargement={t(
+            "Génération en cours, cela peut prendre un moment…",
+            "Generating, this may take a moment…",
+          )}
         >
           {t("Générer le brouillon", "Generate the draft")}
         </Bouton>

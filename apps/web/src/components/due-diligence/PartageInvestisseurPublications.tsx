@@ -11,7 +11,9 @@ import { libellesDd } from "../../lib/due-diligence";
 import { formaterDate } from "../../lib/format";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
+import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { EtatVide } from "../ui/EtatListe";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
 import { usePartageInvestisseur } from "./usePartageInvestisseur";
 
@@ -30,9 +32,14 @@ export function PartageInvestisseurPublications({
   const p = usePartageInvestisseur();
   if (publications.length === 0) {
     return (
-      <p className="mp-texte-doux">
-        {t("Aucune note n'est publiée pour le moment.", "No memo is published at the moment.")}
-      </p>
+      <EtatVide icone="envoyer" titre={t("Aucune note publiée", "No published memo")}>
+        <p>
+          {t(
+            "Publiez une note validée pour la rendre visible aux investisseurs invités.",
+            "Publish an approved memo to make it visible to invited investors.",
+          )}
+        </p>
+      </EtatVide>
     );
   }
   return (
@@ -57,12 +64,18 @@ export function PartageInvestisseurPublications({
                 )}
               </p>
               {pub.perimee ? (
-                <p className="mp-texte-petit">
-                  {t(
-                    "Une version plus récente de la note a été soumise. Retirez cette publication puis publiez la nouvelle version une fois validée.",
-                    "A more recent version of the memo has been submitted. Withdraw this publication, then publish the new version once approved.",
-                  )}
-                </p>
+                <Alerte
+                  tonalite="attention"
+                  titre={t("Publication périmée", "Outdated publication")}
+                  annonce="aucune"
+                >
+                  <p>
+                    {t(
+                      "Une version plus récente de la note a été soumise. Retirez cette publication puis publiez la nouvelle version une fois validée.",
+                      "A more recent version of the memo has been submitted. Withdraw this publication, then publish the new version once approved.",
+                    )}
+                  </p>
+                </Alerte>
               ) : null}
               <p className="mp-texte-petit">
                 {pub.pieces.length === 0

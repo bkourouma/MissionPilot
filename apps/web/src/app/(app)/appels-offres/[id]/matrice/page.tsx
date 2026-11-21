@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import "../../../../../components/appels-offres/appels-offres.css";
+import { NavigationFicheAo } from "../../../../../components/appels-offres/NavigationFicheAo";
 import {
   FormulaireDossierAo,
   FormulaireExigenceAo,
@@ -12,7 +13,7 @@ import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
-import { EtatErreur } from "../../../../../components/ui/EtatListe";
+import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
   droitsAppelsOffres,
@@ -94,6 +95,7 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
           </BadgeStatut>
         }
       />
+      <NavigationFicheAo id={f.id} />
 
       <Carte titre={t("Synthèse", "Summary")}>
         <p>
@@ -194,9 +196,16 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
           {t("Exigences", "Requirements")}
         </h2>
         {exigences.length === 0 ? (
-          <p className="mp-texte-doux">
-            {t("Aucune exigence dans la matrice.", "No requirements in the matrix.")}
-          </p>
+          <EtatVide titre={t("Aucune exigence dans la matrice.", "No requirements in the matrix.")}>
+            <p>
+              {modifiable
+                ? t(
+                    "Enregistrez le dossier pour extraire les exigences, ou ajoutez-les une par une.",
+                    "Save the tender document to extract requirements, or add them one by one.",
+                  )
+                : t("Aucune exigence n'a été saisie.", "No requirement has been entered.")}
+            </p>
+          </EtatVide>
         ) : (
           <ul className="mp-liste-lignes">
             {exigences.map((e) => (

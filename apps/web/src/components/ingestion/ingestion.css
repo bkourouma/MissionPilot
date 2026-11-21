@@ -87,6 +87,62 @@
   overflow-wrap: anywhere;
 }
 
+/* Seconde ligne d'une cellule de tableau (format et taille, lien vers le résultat). */
+.mp-ing-sous-ligne {
+  display: block;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* Pages lues d'un document (visionneuse). */
+.mp-ing-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-ing-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-ing-page--citee {
+  border: 2px solid var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+}
+
+.mp-ing-page__entete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  align-items: center;
+}
+
+.mp-ing-page__meta {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-ing-page__texte {
+  margin: 0;
+  padding: var(--mp-esp-3);
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
 @media (max-width: 30rem) {
   .mp-ing-definitions {
     grid-template-columns: minmax(0, 1fr);

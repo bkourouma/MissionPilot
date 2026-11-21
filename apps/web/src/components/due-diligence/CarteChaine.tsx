@@ -5,7 +5,10 @@ import { useState } from "react";
 import { hrefEcranDossier, libellesDd, type EtapeCarte } from "../../lib/due-diligence";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { Calcule } from "../ui/Calcule";
+import { EtatVide } from "../ui/EtatListe";
 import { BadgeLecture, BadgeNiveauRisque } from "./BadgesDd";
+import "./due-diligence-lecture.css";
 
 export interface CarteChaineProps {
   missionId: string;
@@ -33,8 +36,30 @@ export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) 
   const choisie = etapes.find((e) => e.id === selection) ?? null;
   const hrefRisques = hrefEcranDossier(missionId, dossierId, "risques");
 
+  if (etapes.length === 0) {
+    return (
+      <EtatVide titre={t("Aucune étape", "No step")}>
+        <p>
+          {t(
+            "Décrivez les étapes de la chaîne de valeur pour voir où se concentrent coûts, marges et risques.",
+            "Describe the value chain steps to see where costs, margins and risks concentrate.",
+          )}
+        </p>
+      </EtatVide>
+    );
+  }
+
   return (
     <div className="mp-chaine-zone">
+      <p className="mp-dd-legende-calcul mp-texte-petit mp-texte-doux">
+        <Calcule />
+        <span>
+          {t(
+            "Parts de coût et de marge issues du moteur. Activez une étape pour voir ses risques.",
+            "Cost and margin shares come from the engine. Select a step to see its risks.",
+          )}
+        </span>
+      </p>
       <ol
         className="mp-chaine"
         aria-label={t("Étapes de la chaîne de valeur, dans l'ordre", "Value chain steps, in order")}

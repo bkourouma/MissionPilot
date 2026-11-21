@@ -11,10 +11,13 @@ import {
 } from "../../lib/due-diligence-portail";
 import { formaterDate } from "../../lib/format";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
+import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
+import { EtatVide } from "../ui/EtatListe";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
 import { usePartageInvestisseur } from "./usePartageInvestisseur";
+import "./due-diligence-lecture.css";
 
 function NotePubliable({
   note,
@@ -63,10 +66,12 @@ function NotePubliable({
       </p>
       <PartageInvestisseurRetour erreur={p.erreur ?? erreurChoix} succes={p.succes} />
       {!etat.possible ? (
-        <p className="mp-texte-doux">{etat.raison}</p>
+        <Alerte tonalite="info" annonce="aucune">
+          <p>{etat.raison}</p>
+        </Alerte>
       ) : (
         <>
-          <fieldset className="mp-dd-pile" style={{ border: 0, padding: 0, margin: 0 }}>
+          <fieldset className="mp-dd-groupe">
             <legend>{t("Rapports à joindre (facultatif)", "Reports to attach (optional)")}</legend>
             {note.rapports.length === 0 ? (
               <p className="mp-texte-doux">
@@ -113,12 +118,14 @@ export function PartageInvestisseurNotes({ notes, optionActive }: PartageInvesti
   const t = useT();
   if (notes.length === 0) {
     return (
-      <p className="mp-texte-doux">
-        {t(
-          "Aucune note validée n'est publiable. Une note le devient quand sa dernière version soumise est validée par un tiers.",
-          "No approved memo can be published. A memo becomes publishable when its latest submitted version is approved by a third party.",
-        )}
-      </p>
+      <EtatVide icone="envoyer" titre={t("Aucune note publiable", "No publishable memo")}>
+        <p>
+          {t(
+            "Une note le devient quand sa dernière version soumise est validée par un tiers.",
+            "A memo becomes publishable when its latest submitted version is approved by a third party.",
+          )}
+        </p>
+      </EtatVide>
     );
   }
   return (

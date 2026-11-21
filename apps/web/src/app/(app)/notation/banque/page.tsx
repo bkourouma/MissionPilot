@@ -61,12 +61,32 @@ export default async function PageBanqueNotation({
           </Link>
         }
       />
-      <nav aria-label={t("Filtrer par statut", "Filter by status")}>
-        <p>
-          {t("Filtrer :", "Filter:")} <Link href="/notation/banque">{t("tous", "all")}</Link> ·{" "}
-          <Link href="/notation/banque?statut=valide">{t("validés", "approved")}</Link> ·{" "}
-          <Link href="/notation/banque?statut=brouillon">{t("brouillons", "drafts")}</Link>
-        </p>
+      <nav className="mp-onglets" aria-label={t("Filtrer par statut", "Filter by status")}>
+        <ul className="mp-onglets__liste">
+          {[
+            { cle: "", href: "/notation/banque", libelle: t("Tous", "All") },
+            {
+              cle: "valide",
+              href: "/notation/banque?statut=valide",
+              libelle: t("Validés", "Approved"),
+            },
+            {
+              cle: "brouillon",
+              href: "/notation/banque?statut=brouillon",
+              libelle: t("Brouillons", "Drafts"),
+            },
+          ].map((f) => (
+            <li key={f.cle || "tous"}>
+              <Link
+                href={f.href}
+                className="mp-onglets__lien"
+                aria-current={(statut ?? "") === f.cle ? "page" : undefined}
+              >
+                {f.libelle}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </nav>
       <Carte titre={t("Items", "Items")}>
         {!r.ok ? (

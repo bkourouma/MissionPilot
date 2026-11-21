@@ -81,3 +81,14 @@ describe("ArbreHypotheses : attributs ARIA", () => {
     expect(h1.match(/aria-describedby="([^"]+)"/)?.[1]?.split(" ")).toHaveLength(1);
   });
 });
+
+describe("ArbreHypotheses : arbre vide", () => {
+  it("affiche un état vide explicite, sans arbre ARIA vide", () => {
+    const html = renderToStaticMarkup(
+      createElement(ArbreHypotheses, { missionId: "m1", dossierId: "d1", arbre: [] }),
+    );
+    expect(html).toContain("Aucune hypothèse");
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="tree"');
+  });
+});

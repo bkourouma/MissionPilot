@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FormulaireReference } from "../../../../../components/banque-ao/FormulairesReferences";
 import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
+import { Champ } from "../../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
@@ -51,11 +52,7 @@ export default async function PageReferences({ searchParams }: { searchParams: P
   );
   const chemin = `${RACINE_BANQUES}/references`;
   const champ = (cle: (typeof CLES)[number], libelle: string, aide?: string) => (
-    <label className="mp-champ">
-      <span className="mp-champ__libelle">{libelle}</span>
-      <input className="mp-champ__controle" name={cle} defaultValue={filtres[cle] ?? ""} />
-      {aide ? <span className="mp-champ__aide">{aide}</span> : null}
-    </label>
+    <Champ libelle={libelle} name={cle} defaultValue={filtres[cle] ?? ""} aide={aide} />
   );
 
   return (
@@ -67,22 +64,33 @@ export default async function PageReferences({ searchParams }: { searchParams: P
           "Completed engagements and performance certificates, to cite in bids. An amount filter applies in a single currency.",
         )}
       />
-      <form className="mp-formulaire mp-grille-champs" method="get">
-        {champ("q", t("Texte", "Text"))}
-        {champ("secteur", t("Secteur", "Sector"))}
-        {champ("pays", t("Pays", "Country"), t("Code à deux lettres.", "Two-letter code."))}
-        {champ("bailleur", t("Bailleur", "Donor"))}
-        {champ(
-          "devise",
-          t("Devise", "Currency"),
-          t("XOF, XAF, EUR ou USD.", "XOF, XAF, EUR or USD."),
-        )}
-        {champ("montant_min", t("Montant minimal", "Minimum amount"))}
-        {champ("montant_max", t("Montant maximal", "Maximum amount"))}
+      <form
+        className="mp-filtres"
+        method="get"
+        aria-label={t("Filtrer les références", "Filter references")}
+      >
+        <div className="mp-grille-champs mp-grille-champs--filtres">
+          {champ("q", t("Texte", "Text"))}
+          {champ("secteur", t("Secteur", "Sector"))}
+          {champ("pays", t("Pays", "Country"), t("Code à deux lettres.", "Two-letter code."))}
+          {champ("bailleur", t("Bailleur", "Donor"))}
+          {champ(
+            "devise",
+            t("Devise", "Currency"),
+            t("XOF, XAF, EUR ou USD.", "XOF, XAF, EUR or USD."),
+          )}
+          {champ("montant_min", t("Montant minimal", "Minimum amount"))}
+          {champ("montant_max", t("Montant maximal", "Maximum amount"))}
+        </div>
         <div className="mp-actions-formulaire">
           <button className={classesBouton("secondaire")} type="submit">
             {t("Rechercher", "Search")}
           </button>
+          {Object.keys(filtres).length > 0 ? (
+            <Link href={chemin} className={classesBouton("discret")}>
+              {t("Réinitialiser", "Reset")}
+            </Link>
+          ) : null}
         </div>
       </form>
       {!r.ok ? (

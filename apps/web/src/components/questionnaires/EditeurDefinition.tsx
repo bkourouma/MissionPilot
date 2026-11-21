@@ -83,6 +83,17 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
   useEffect(() => {
     if (tentative > 0) refAlerte.current?.focus();
   }, [tentative]);
+  // Modifications non enregistrées : le navigateur demande confirmation avant de fermer ou
+  // recharger la page (la définition ne vit que dans l'état de la page).
+  useEffect(() => {
+    if (!modifie) return;
+    const avertir = (ev: BeforeUnloadEvent) => {
+      ev.preventDefault();
+      ev.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [modifie]);
   // Après un ajout ou un déplacement : focus sur l'élément concerné.
   useEffect(() => {
     if (!focus) return;
@@ -204,7 +215,19 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       >
         {t("Enregistrer le brouillon", "Save draft")}
       </Bouton>
-      {bas ? null : (
+      {bas ? (
+        <span
+          className={modifie ? "mp-qe-etat mp-qe-etat--modifie" : "mp-qe-etat"}
+          aria-hidden="true"
+        >
+          <Icone nom={modifie ? "attention" : "succes"} taille={16} />
+          <span>
+            {modifie
+              ? t("Modifications non enregistrées", "Unsaved changes")
+              : t("Tout est enregistré", "Everything is saved")}
+          </span>
+        </span>
+      ) : (
         <BoutonConfirmation
           libelle={t("Valider la version", "Approve the version")}
           icone="cadenas"

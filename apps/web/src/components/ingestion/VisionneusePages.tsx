@@ -1,5 +1,6 @@
 "use client";
 
+import "./ingestion.css";
 import { useState } from "react";
 import { formaterDate } from "../../lib/format";
 import { Bouton } from "../ui/Bouton";
@@ -85,10 +86,7 @@ export function VisionneusePages({
   }
 
   return (
-    <ul
-      aria-label={t("Pages du document", "Document pages")}
-      style={{ listStyle: "none", padding: 0, margin: 0 }}
-    >
+    <ul aria-label={t("Pages du document", "Document pages")} className="mp-ing-pages">
       {pages.map((p) => {
         const e = ouvertes[p.numero];
         const citee = pageCitee === p.numero;
@@ -99,24 +97,19 @@ export function VisionneusePages({
             key={p.numero}
             id={`page-${p.numero}`}
             aria-current={citee ? "location" : undefined}
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.5rem",
-              border: citee ? "2px solid currentColor" : "1px solid var(--mp-bordure)",
-              borderRadius: "0.5rem",
-            }}
+            className={citee ? "mp-ing-page mp-ing-page--citee" : "mp-ing-page"}
           >
-            <div
-              style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}
-            >
+            <div className="mp-ing-page__entete">
               <strong>
                 {t("Page", "Page")} {p.numero}
               </strong>
               {citee ? <span>{t("(page citée)", "(cited page)")}</span> : null}
-              <span>{libelleMethode(p.methode, langue)}</span>
-              <span>{formaterCaracteres(p.nb_caracteres, langue)}</span>
+              <span className="mp-ing-page__meta">{libelleMethode(p.methode, langue)}</span>
+              <span className="mp-ing-page__meta">
+                {formaterCaracteres(p.nb_caracteres, langue)}
+              </span>
               {methodeOcr(p.methode) ? (
-                <span>
+                <span className="mp-ing-page__meta">
                   {t("Confiance", "Confidence")} {formaterConfiancePage(p.confiance_pm)}
                 </span>
               ) : null}
@@ -138,7 +131,7 @@ export function VisionneusePages({
             </div>
             <div id={idTexte} aria-live="polite">
               {e?.etat === "ok" ? (
-                <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", maxHeight: "24rem" }}>
+                <pre className="mp-ing-page__texte" tabIndex={0}>
                   {e.texte}
                 </pre>
               ) : null}

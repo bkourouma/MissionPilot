@@ -146,6 +146,7 @@ export function ActionsOpportunite({ opportuniteId, etape, supprimable }: Action
                 value={motif}
                 onChange={(e) => setMotif(e.target.value)}
                 erreur={fIssue.erreurs.motif_perte}
+                autoFocus
                 aide={t(
                   "Obligatoire : prix, concurrent retenu, projet abandonné…",
                   "Required: price, competitor selected, project abandoned…",
