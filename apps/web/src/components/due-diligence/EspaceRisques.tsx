@@ -28,6 +28,7 @@ import {
   type SaisieCorrectionRisque,
   type SaisieRisque,
 } from "../../lib/due-diligence-saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
@@ -36,6 +37,7 @@ import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
+import { EtatVide } from "../ui/EtatListe";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { BadgeNiveauRisque } from "./BadgesDd";
@@ -242,6 +244,7 @@ function LigneSignal({
   const [ecarter, setEcarter] = useState(false);
   const [commentaire, setCommentaire] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+  const [annonce, setAnnonce] = useState("");
   const [enCours, setEnCours] = useState(false);
 
   async function constater(etat: "constate" | "ecarte" | "a_verifier") {
@@ -251,11 +254,13 @@ function LigneSignal({
       return;
     }
     setErreur(null);
+    setAnnonce("");
     setEnCours(true);
     try {
       await api.post(cheminConstatSignal(dossierId, signal.signal_id), v.charge);
       setEcarter(false);
       setCommentaire("");
+      setAnnonce(t("Constat enregistré.", "Finding saved."));
       rafraichir();
     } catch (e) {
       setErreur(messageDd(e, langue));
@@ -311,6 +316,7 @@ function LigneSignal({
             <Bouton
               variante="secondaire"
               disabled={enCours || enAttente}
+              aria-label={t(`Constaté : ${signal.libelle}`, `Observed: ${signal.libelle}`)}
               onClick={() => void constater("constate")}
             >
               {t("Constaté", "Observed")}
@@ -320,6 +326,10 @@ function LigneSignal({
                 <Bouton
                   variante="secondaire"
                   disabled={enCours || enAttente}
+                  aria-label={t(
+                    `Confirmer : écarté, ${signal.libelle}`,
+                    `Confirm: dismissed, ${signal.libelle}`,
+                  )}
                   onClick={() => void constater("ecarte")}
                 >
                   {t("Confirmer : écarté", "Confirm: dismissed")}
@@ -332,6 +342,7 @@ function LigneSignal({
               <Bouton
                 variante="secondaire"
                 disabled={enCours || enAttente}
+                aria-label={t(`Écarté : ${signal.libelle}`, `Dismissed: ${signal.libelle}`)}
                 onClick={() => setEcarter(true)}
               >
                 {t("Écarté", "Dismissed")}
@@ -340,6 +351,7 @@ function LigneSignal({
             <Bouton
               variante="secondaire"
               disabled={enCours || enAttente}
+              aria-label={t(`À vérifier : ${signal.libelle}`, `To verify: ${signal.libelle}`)}
               onClick={() => void constater("a_verifier")}
             >
               {t("À vérifier", "To verify")}
@@ -347,11 +359,18 @@ function LigneSignal({
             <Bouton
               variante="primaire"
               disabled={enCours || enAttente}
+              aria-label={t(
+                `Créer le risque depuis le signal : ${signal.libelle}`,
+                `Create the risk from the signal: ${signal.libelle}`,
+              )}
               onClick={() => onCreerRisque(signal)}
             >
               {t("Créer le risque", "Create the risk")}
             </Bouton>
           </div>
+          <p className="mp-visuellement-cache" role="status" aria-live="polite">
+            {annonce}
+          </p>
         </>
       ) : null}
     </li>
@@ -412,12 +431,14 @@ export function EspaceRisques({
             <p>{erreurSignaux}</p>
           </Alerte>
         ) : signaux.length === 0 ? (
-          <p className="mp-texte-doux">
-            {t(
-              "Aucun signal de la bibliothèque ne s'applique à ce secteur et à ce pays. La bibliothèque est maintenue par les experts du cabinet (Paramètres, Due diligence).",
-              "No signal in the library applies to this sector and country. The library is maintained by the firm's experts (Settings, Due diligence).",
-            )}
-          </p>
+          <EtatVide icone="drapeau" titre={t("Aucun signal applicable", "No applicable signal")}>
+            <p>
+              {t(
+                "Aucun signal de la bibliothèque ne s'applique à ce secteur et à ce pays. La bibliothèque est maintenue par les experts du cabinet (Paramètres, Due diligence).",
+                "No signal in the library applies to this sector and country. The library is maintained by the firm's experts (Settings, Due diligence).",
+              )}
+            </p>
+          </EtatVide>
         ) : (
           <ul
             className="mp-dd-liste"
@@ -617,9 +638,21 @@ export function CorrectionRisque({ risque, etapes, graviteSignal }: CorrectionRi
         >
           {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
-        <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-          {t("Retirer ce risque", "Remove this risk")}
-        </Bouton>
+        <BoutonConfirmation
+          variante="danger"
+          libelle={t("Retirer ce risque", "Remove this risk")}
+          question={t(
+            "Retirer ce risque ? Le motif saisi est conservé dans l'historique.",
+            "Remove this risk? The reason entered is kept in the history.",
+          )}
+          libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+          texteChargement={t("Retrait…", "Removing…")}
+          action={async () => {
+            await retirer();
+            // Retour au bouton : le résultat (succès ou refus) s'affiche dans le formulaire.
+            return false;
+          }}
+        />
       </div>
     </form>
   );

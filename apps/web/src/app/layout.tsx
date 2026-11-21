@@ -12,6 +12,9 @@ import "../styles/temps.css";
 import "../styles/facturation.css";
 import "../styles/finance.css";
 import "../styles/collaboration.css";
+// Socle : en dernier, pour primer sur les anciennes copies des règles de composants partagés.
+import "../styles/socle-formulaires.css";
+import "../styles/socle-donnees.css";
 // Après les styles globaux : la feuille de style de l'indicateur de connexion vient ensuite.
 import { HorsLigne } from "../components/hors-ligne/HorsLigne";
 import { DebloqueurRendu } from "../components/shell/DebloqueurRendu";

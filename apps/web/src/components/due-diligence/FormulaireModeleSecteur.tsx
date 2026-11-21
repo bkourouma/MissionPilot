@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PLAFONDS_DD } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { messageDd, type EntreeTaxonomie, type ReponseEcriture } from "../../lib/due-diligence";
@@ -52,6 +52,21 @@ export function FormulaireModeleSecteur({ secteurs, modele }: FormulaireModeleSe
   const [s, setS] = useState<SaisieModele>(
     modele ? saisieDepuisModele(modele) : saisieModeleVide(),
   );
+  const refListe = useRef<HTMLOListElement>(null);
+  const refAjout = useRef<HTMLButtonElement>(null);
+  const focusApres = useRef<number | "ajout" | null>(null);
+
+  // Focus au bon endroit : sur le premier champ de l'élément ajouté, ou sur « Ajouter » après un retrait.
+  useEffect(() => {
+    const cible = focusApres.current;
+    if (cible === null) return;
+    focusApres.current = null;
+    if (cible === "ajout") refAjout.current?.focus();
+    else {
+      const elements = refListe.current?.querySelectorAll<HTMLElement>(":scope > li");
+      elements?.item(cible)?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+    }
+  }, [s.points.length]);
   const maj = (p: Partial<SaisieModele>) => setS((x) => ({ ...x, ...p }));
   const majPoint = (i: number, p: Partial<SaisiePointModele>) =>
     maj({ points: s.points.map((x, j) => (j === i ? { ...x, ...p } : x)) });
@@ -138,6 +153,7 @@ export function FormulaireModeleSecteur({ secteurs, modele }: FormulaireModeleSe
           </Alerte>
         ) : null}
         <ol
+          ref={refListe}
           className="mp-dd-liste"
           aria-label={t("Points à examiner du modèle", "Template points to examine")}
         >
@@ -182,7 +198,10 @@ export function FormulaireModeleSecteur({ secteurs, modele }: FormulaireModeleSe
                   variante="discret"
                   disabled={s.points.length === 1}
                   aria-label={t(`Retirer le point ${i + 1}`, `Remove item ${i + 1}`)}
-                  onClick={() => maj({ points: s.points.filter((_, j) => j !== i) })}
+                  onClick={() => {
+                    focusApres.current = "ajout";
+                    maj({ points: s.points.filter((_, j) => j !== i) });
+                  }}
                 >
                   {t("Retirer", "Remove")}
                 </Bouton>
@@ -192,9 +211,14 @@ export function FormulaireModeleSecteur({ secteurs, modele }: FormulaireModeleSe
         </ol>
         <div>
           <Bouton
+            ref={refAjout}
             variante="secondaire"
+            icone="plus"
             disabled={plein}
-            onClick={() => maj({ points: [...s.points, saisiePointVide()] })}
+            onClick={() => {
+              focusApres.current = s.points.length;
+              maj({ points: [...s.points, saisiePointVide()] });
+            }}
           >
             {t("Ajouter un point", "Add an item")}
           </Bouton>

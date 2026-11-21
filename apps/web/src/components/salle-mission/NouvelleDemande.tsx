@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
@@ -52,6 +52,19 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
   const [modeles, setModeles] = useState<ModeleSalle[] | null>(null);
   const [erreurModeles, setErreurModeles] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
+  const refFormulaire = useRef<HTMLFormElement>(null);
+  const [tentative, setTentative] = useState(0);
+
+  // Formulaire ouvert : focus sur le premier champ ; envoi refusé : focus sur le premier champ en erreur.
+  useEffect(() => {
+    if (!ouvert) return;
+    const f = refFormulaire.current;
+    if (!f) return;
+    (tentative > 0
+      ? f.querySelector<HTMLElement>('[aria-invalid="true"]')
+      : f.querySelector<HTMLElement>("input, textarea, select")
+    )?.focus();
+  }, [ouvert, tentative]);
 
   async function ouvrir() {
     setOuvert(true);
@@ -88,7 +101,10 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
     const e = validerDemande(saisie, aujourdhui, langue);
     setErreurs(e);
     setErreurServeur(null);
-    if (Object.keys(e).length > 0) return;
+    if (Object.keys(e).length > 0) {
+      setTentative((n) => n + 1);
+      return;
+    }
     setEnvoi(true);
     try {
       const d = await api.post<DemandeDetail>(
@@ -100,8 +116,10 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
     } catch (err) {
       // Échéance refusée par le schéma : message sous le champ, pas une erreur générale.
       const champ = erreurEcheanceApi(err, langue);
-      if (champ) setErreurs({ echeance: champ });
-      else {
+      if (champ) {
+        setErreurs({ echeance: champ });
+        setTentative((n) => n + 1);
+      } else {
         setErreurServeur(
           (err instanceof ErreurApi ? messageSalle(err.code, langue) : null) ??
             messageErreur(err, langue),
@@ -122,7 +140,13 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
   }
 
   return (
-    <form className="mp-formulaire mp-pile" onSubmit={(e) => void soumettre(e)} noValidate>
+    <form
+      ref={refFormulaire}
+      className="mp-formulaire mp-pile"
+      aria-label={t("Nouvelle demande de documents", "New document request")}
+      onSubmit={(e) => void soumettre(e)}
+      noValidate
+    >
       <h2 className="mp-section__titre">
         {t("Nouvelle demande de documents", "New document request")}
       </h2>
@@ -232,6 +256,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
               type="button"
               variante="discret"
               icone="corbeille"
+              aria-label={t(`Retirer la pièce ${i + 1}`, `Remove document ${i + 1}`)}
               onClick={() =>
                 setSaisie((s) => ({ ...s, pieces: s.pieces.filter((_, j) => j !== i) }))
               }
@@ -260,7 +285,15 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
         <Bouton type="submit" chargement={envoi} texteChargement={t("Création…", "Creating…")}>
           {t("Créer le brouillon", "Create the draft")}
         </Bouton>
-        <Bouton type="button" variante="discret" onClick={() => setOuvert(false)} disabled={envoi}>
+        <Bouton
+          type="button"
+          variante="discret"
+          onClick={() => {
+            setOuvert(false);
+            setTentative(0);
+          }}
+          disabled={envoi}
+        >
           {t("Annuler", "Cancel")}
         </Bouton>
       </div>

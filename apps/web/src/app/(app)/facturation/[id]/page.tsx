@@ -23,7 +23,12 @@ import {
   STATUT_FACTURE,
   type FactureDetaillee,
 } from "../../../../lib/factures";
-import { formaterDate, formaterDateHeure, libelleDevise } from "../../../../lib/format";
+import {
+  formaterDate,
+  formaterDateHeure,
+  formaterMontantMineur,
+  libelleDevise,
+} from "../../../../lib/format";
 import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import type { MissionDetaillee } from "../../../../lib/missions";
@@ -112,12 +117,45 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
         }
         soustitre={`${f.client_raison_sociale} · ${f.mission_intitule} · ${libelleDevise(f.devise)}`}
       />
+      <dl className="mp-synthese" aria-label={t("Synthèse de la facture", "Invoice summary")}>
+        <div>
+          <dt>{t("Échéance", "Due date")}</dt>
+          <dd>
+            {f.nature === "avoir"
+              ? t("Sans objet", "Not applicable")
+              : f.date_echeance
+                ? formaterDate(f.date_echeance, "UTC", langue)
+                : t(
+                    `Fixée à l'émission (${f.delai_paiement_jours} jours après)`,
+                    `Set at issuance (${f.delai_paiement_jours} days after)`,
+                  )}
+          </dd>
+        </div>
+        <div>
+          <dt>{t("Net à payer", "Net payable")}</dt>
+          <dd>{formaterMontantMineur(f.net_a_payer, f.devise, langue)}</dd>
+        </div>
+        {paiement?.ok && paiement.donnees.statut_paiement ? (
+          <div>
+            <dt>{t("Reste à payer", "Balance due")}</dt>
+            <dd>
+              {formaterMontantMineur(
+                paiement.donnees.solde,
+                paiement.donnees.devise ?? f.devise,
+                langue,
+              )}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
       <Bandeaux f={f} raison={actions.raisonRefusApprobation} langue={langue} />
       <Carte titre={t("Informations", "Information")}>
         <Informations f={f} langue={langue} />
       </Carte>
       <Carte titre={t("Lignes", "Lines")}>
-        <LignesFacture facture={f} modifiable={actions.modifier} tauxAutorises={tauxAutorises} />
+        <div className="mp-chiffres">
+          <LignesFacture facture={f} modifiable={actions.modifier} tauxAutorises={tauxAutorises} />
+        </div>
       </Carte>
       <Carte titre={t("Totaux", "Totals")}>
         <TotauxFacture facture={f} />

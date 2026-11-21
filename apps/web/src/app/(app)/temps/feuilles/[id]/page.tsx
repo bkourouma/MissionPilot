@@ -87,12 +87,14 @@ export default async function PageFeuille({ params }: { params: Promise<{ id: st
         </Alerte>
       ) : null}
       {f.vue_partielle ? (
-        <p className="mp-texte-doux">
-          {t(
-            "Seules les parties que vous pouvez examiner (vos missions) sont affichées.",
-            "Only the parts you can review (your engagements) are shown.",
-          )}
-        </p>
+        <Alerte tonalite="info" annonce="aucune">
+          <p>
+            {t(
+              "Seules les parties que vous pouvez examiner (vos missions) sont affichées.",
+              "Only the parts you can review (your engagements) are shown.",
+            )}
+          </p>
+        </Alerte>
       ) : null}
       {f.soumise_le ? (
         <p className="mp-texte-doux">
@@ -126,9 +128,9 @@ export default async function PageFeuille({ params }: { params: Promise<{ id: st
                 unite={unite}
               />
               {partie.motif ? (
-                <p className="mp-texte-preserve">
-                  {t(`Motif : ${partie.motif}`, `Reason: ${partie.motif}`)}
-                </p>
+                <Alerte tonalite="attention" annonce="aucune" titre={t("Motif", "Reason")}>
+                  <p className="mp-texte-preserve">{partie.motif}</p>
+                </Alerte>
               ) : null}
               {decider ? (
                 <DecisionPartie

@@ -1,0 +1,833 @@
+/* Composants de données du socle (Tableau, Squelette, Pagination, états, onglets, en-tête de page). Propriétaire : lot 0. Chargé après les feuilles de rubrique pour primer sur leurs anciennes copies. */
+
+/* ---------- Squelette ---------- */
+.mp-squelette__forme {
+  border-radius: var(--mp-rayon);
+  background: linear-gradient(
+    90deg,
+    var(--mp-surface-2) 25%,
+    var(--mp-bordure) 50%,
+    var(--mp-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: mp-reflet 1.4s ease-in-out infinite;
+}
+
+.mp-squelette__titre {
+  height: 1.75rem;
+  width: 40%;
+  margin-bottom: var(--mp-esp-4);
+}
+
+.mp-squelette__ligne {
+  height: 1rem;
+  margin-bottom: var(--mp-esp-3);
+}
+
+@keyframes mp-reflet {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Mouvement réduit : forme statique, sans reflet. */
+@media (prefers-reduced-motion: reduce) {
+  .mp-squelette__forme {
+    animation: none;
+    background: var(--mp-bordure);
+  }
+}
+
+/* Squelette de liste (copie de referentiels.css). */
+.mp-squelette-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-squelette-liste__ligne {
+  height: 3rem;
+}
+
+/* Squelette de tableau : une rangée = une grille de N colonnes. */
+.mp-squelette-tableau {
+  overflow: hidden;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-squelette-tableau__rangee {
+  display: grid;
+  grid-template-columns: repeat(var(--mp-squelette-colonnes, 4), minmax(0, 1fr));
+  align-items: center;
+  gap: var(--mp-esp-4);
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-squelette-tableau__rangee:last-child {
+  border-bottom: 0;
+}
+
+.mp-squelette-tableau__cellule {
+  display: block;
+  width: 70%;
+  height: 1rem;
+}
+
+.mp-squelette-tableau__rangee--entete .mp-squelette-tableau__cellule {
+  width: 50%;
+  height: 0.75rem;
+}
+
+@media (max-width: 639px) {
+  .mp-squelette-tableau__rangee {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mp-squelette-tableau__rangee--entete,
+  .mp-squelette-tableau__cellule:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+/* Squelette de cartes : grille fluide (16 rem minimum par carte). */
+.mp-squelette-cartes__grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--mp-esp-4);
+}
+
+.mp-squelette-cartes__carte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-squelette-cartes__titre {
+  display: block;
+  width: 55%;
+  height: 1.25rem;
+}
+
+.mp-squelette-cartes__ligne {
+  display: block;
+  width: 100%;
+  height: 1rem;
+}
+
+/* ---------- Tableau ---------- */
+.mp-tableau {
+  overflow-x: auto;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-tableau__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mp-tableau__legende {
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  text-align: left;
+  font-weight: 650;
+}
+
+.mp-tableau th,
+.mp-tableau td {
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  text-align: left;
+  /* Les liens de 44 px et le texte d'une même ligne se centrent sur le même axe. */
+  vertical-align: middle;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-tableau th {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mp-tableau .mp-aligne-droite {
+  text-align: right;
+}
+
+.mp-tableau .mp-aligne-centre {
+  text-align: center;
+}
+
+.mp-tableau tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.mp-tableau__vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-6) var(--mp-esp-4);
+  text-align: center;
+  color: var(--mp-texte-doux);
+  background: var(--mp-surface);
+  border: 1px dashed var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-tableau__vide-texte {
+  max-width: 36rem;
+  margin: 0;
+}
+
+.mp-tableau__vide-action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--mp-esp-2);
+}
+
+/* Téléphone : une fiche par ligne. */
+@media (max-width: 639px) {
+  .mp-tableau {
+    background: transparent;
+    border: 0;
+  }
+  .mp-tableau thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .mp-tableau__table,
+  .mp-tableau tbody,
+  .mp-tableau tr,
+  .mp-tableau td {
+    display: block;
+  }
+  .mp-tableau tr {
+    margin-bottom: var(--mp-esp-3);
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-bordure);
+    border-radius: var(--mp-rayon-l);
+  }
+  .mp-tableau td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mp-esp-3);
+    padding: var(--mp-esp-2) var(--mp-esp-3);
+    text-align: right;
+  }
+  .mp-tableau td::before {
+    content: attr(data-libelle);
+    color: var(--mp-texte-doux);
+    font-weight: 600;
+    text-align: left;
+  }
+  .mp-tableau tbody tr td:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* ---------- Tableau : fonctions du socle (classe `mp-tableau--socle`, posée par <Tableau>) ---------- */
+/* Les usages bruts de `.mp-tableau` (sans le composant) gardent l'apparence ci-dessus. */
+.mp-tableau--socle {
+  /* Ombres de bord : visibles seulement tant qu'il reste du contenu hors de vue. */
+  background:
+    linear-gradient(to right, var(--mp-surface) 30%, transparent) 0 0 / 1.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--mp-surface) 30%, transparent) 100% 0 / 1.5rem 100% no-repeat
+      local,
+    radial-gradient(farthest-side at 0 50%, var(--mp-bordure-controle), transparent) 0 0 / 0.5rem
+      100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--mp-bordure-controle), transparent) 100% 0 /
+      0.5rem 100% no-repeat scroll,
+    var(--mp-surface);
+}
+
+.mp-tableau--socle .mp-tableau__table {
+  /* `separate` garde les filets sous un en-tête collant. */
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.mp-tableau--socle th,
+.mp-tableau--socle td {
+  /* Chiffres alignés : tabulaires dans toutes les cellules. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* En-tête collant : le conteneur défile dans sa hauteur maximale. */
+.mp-tableau--fixe {
+  max-height: var(--mp-tableau-hauteur, 70vh);
+  overflow: auto;
+}
+
+.mp-tableau--fixe thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--mp-z-collant);
+}
+
+/* Lignes serrées (pointeur fin seulement : les cibles tactiles restent de 44 px). */
+.mp-tableau--dense th,
+.mp-tableau--dense td {
+  padding-top: var(--mp-esp-1);
+  padding-bottom: var(--mp-esp-1);
+}
+
+@media (pointer: fine) {
+  .mp-tableau--dense .mp-lien-ligne {
+    min-height: 2rem;
+  }
+}
+
+/* Pied de totaux. */
+.mp-tableau--socle tfoot td {
+  font-weight: 700;
+  background: var(--mp-surface-2);
+  border-top: 1px solid var(--mp-bordure-controle);
+  border-bottom: 0;
+}
+
+.mp-tableau--socle .mp-tableau__table:has(tfoot) tbody tr:last-child td {
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+/* Tri : l'en-tête devient un lien de 44 px de haut. */
+.mp-tableau--socle .mp-tableau__th--tri {
+  padding: 0;
+}
+
+.mp-tableau__tri {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-4);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: none;
+}
+
+.mp-tableau__tri:hover {
+  color: var(--mp-texte);
+  background: var(--mp-survol-ligne);
+}
+
+.mp-tableau__tri:focus-visible {
+  /* L'en-tête défile : le contour reste à l'intérieur pour ne pas être rogné. */
+  outline-offset: calc(-1 * var(--mp-focus-largeur));
+}
+
+.mp-tableau__sens {
+  flex: none;
+  color: var(--mp-primaire);
+}
+
+.mp-tableau__sens--neutre {
+  color: var(--mp-texte-doux);
+}
+
+.mp-tableau th[aria-sort="ascending"],
+.mp-tableau th[aria-sort="descending"] {
+  color: var(--mp-texte);
+}
+
+.mp-tableau .mp-aligne-droite .mp-tableau__tri {
+  justify-content: flex-end;
+}
+
+.mp-tableau .mp-aligne-centre .mp-tableau__tri {
+  justify-content: center;
+}
+
+/* Ligne entière cliquable : le lien `.mp-lien-etendu` de la cellule principale couvre la ligne. */
+.mp-tableau--socle tbody tr {
+  position: relative;
+}
+
+@media (hover: hover) {
+  .mp-tableau--socle tbody tr:hover {
+    background: var(--mp-survol-ligne);
+  }
+}
+
+.mp-tableau--socle tbody tr:focus-within {
+  background: var(--mp-survol-ligne);
+}
+
+.mp-tableau--socle tbody tr:has(.mp-lien-etendu) {
+  cursor: pointer;
+}
+
+.mp-tableau--socle .mp-lien-etendu::after {
+  /* Pas de coins arrondis : la ligne n'est pas une carte. */
+  border-radius: 0;
+}
+
+/* Les autres liens et boutons de la ligne restent cliquables au-dessus du lien étendu. */
+.mp-tableau--socle td a:not(.mp-lien-etendu),
+.mp-tableau--socle td button,
+.mp-tableau--socle td input,
+.mp-tableau--socle td select,
+.mp-tableau--socle td label {
+  position: relative;
+  z-index: 1;
+}
+
+@supports selector(:has(a)) {
+  /* Le focus clavier se lit sur toute la ligne, pas sur le seul texte du lien. */
+  .mp-tableau--socle .mp-lien-etendu:focus-visible {
+    outline: none;
+  }
+  .mp-tableau--socle tbody tr:has(.mp-lien-etendu:focus-visible) {
+    outline: var(--mp-focus-largeur) solid var(--mp-focus);
+    outline-offset: calc(-1 * var(--mp-focus-largeur));
+  }
+}
+
+/* Téléphone : fiches. */
+@media (max-width: 639px) {
+  .mp-tableau--socle,
+  .mp-tableau--fixe {
+    max-height: none;
+    overflow: visible;
+    background: transparent;
+  }
+  .mp-tableau--tri thead {
+    /* Les liens de tri ne doivent pas rester focalisables hors de vue. */
+    display: none;
+  }
+  .mp-tableau--socle tbody tr,
+  .mp-tableau--socle tfoot tr {
+    overflow: hidden;
+  }
+  .mp-tableau--socle tfoot {
+    display: block;
+  }
+  .mp-tableau--socle td {
+    align-items: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .mp-tableau--socle td:empty {
+    display: none;
+  }
+  .mp-tableau--socle td::before {
+    flex: none;
+    max-width: 45%;
+  }
+  .mp-tableau--socle tfoot td {
+    border-top: 0;
+  }
+  .mp-tableau--socle tfoot tr {
+    background: var(--mp-surface-2);
+    border-color: var(--mp-bordure-controle);
+  }
+  .mp-tableau--fiche-titre tbody td:first-child {
+    display: block;
+    padding: var(--mp-esp-3);
+    background: var(--mp-surface-2);
+    font-size: var(--mp-taille-m);
+    font-weight: 650;
+    text-align: left;
+  }
+  .mp-tableau--fiche-titre tbody td:first-child::before {
+    display: none;
+  }
+}
+
+/* ---------- Pagination ---------- */
+.mp-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+}
+
+.mp-pagination__resume {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-pagination__plage {
+  color: var(--mp-texte);
+  font-weight: 600;
+}
+
+.mp-pagination__liste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  list-style: none;
+}
+
+.mp-pagination__lien {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mp-esp-1);
+  min-width: var(--mp-cible);
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  text-decoration: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+a.mp-pagination__lien:hover {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte);
+}
+
+.mp-pagination__lien[aria-current="page"],
+a.mp-pagination__lien[aria-current="page"]:hover {
+  background: var(--mp-primaire);
+  border-color: var(--mp-primaire);
+  color: var(--mp-sur-primaire);
+  font-weight: 700;
+}
+
+a.mp-pagination__lien[aria-current="page"]:hover {
+  background: var(--mp-primaire-survol);
+  border-color: var(--mp-primaire-survol);
+}
+
+.mp-pagination__lien[aria-disabled="true"] {
+  color: var(--mp-texte-doux);
+  background: var(--mp-surface-2);
+  cursor: not-allowed;
+}
+
+.mp-pagination__ellipse {
+  padding: 0 var(--mp-esp-1);
+  color: var(--mp-texte-doux);
+}
+
+/* Téléphone : précédente / suivante seulement, plus le résumé. */
+@media (max-width: 479px) {
+  .mp-pagination__numero,
+  .mp-pagination__ellipse {
+    display: none;
+  }
+  .mp-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mp-pagination > .mp-pagination__liste {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .mp-pagination > .mp-pagination__liste > li {
+    flex: 1 1 0;
+  }
+  .mp-pagination > .mp-pagination__liste > li > .mp-pagination__lien {
+    width: 100%;
+  }
+}
+
+/* ---------- En-tête de page ---------- */
+.mp-entete-page {
+  gap: var(--mp-esp-2);
+}
+
+.mp-entete-page__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+}
+
+.mp-entete-page__textes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  flex: 1 1 28rem;
+}
+.mp-entete-page__textes .mp-page__titre {
+  overflow-wrap: anywhere;
+}
+
+.mp-entete-page__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1);
+}
+
+.mp-entete-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+}
+
+/* Téléphone : les actions passent sous le titre, pleine largeur, action principale en premier. */
+@media (max-width: 639px) {
+  .mp-entete-page__ligne {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mp-entete-page__textes {
+    /* Sans cela, la base de 28 rem de la rangée deviendrait une hauteur en colonne. */
+    flex: 0 1 auto;
+  }
+  .mp-entete-page__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mp-entete-page__actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+  .mp-entete-page__actions .mp-bouton--primaire {
+    order: -1;
+  }
+}
+
+.mp-lien-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  align-self: flex-start;
+  min-height: var(--mp-cible);
+  font-weight: 600;
+  text-decoration: none;
+}
+.mp-lien-retour:hover {
+  text-decoration: underline;
+}
+
+/* Fil d'Ariane. */
+.mp-fil {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mp-fil__liste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--mp-esp-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-fil__element {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-fil__lien,
+.mp-fil__texte,
+.mp-fil__courant {
+  display: block;
+  max-width: 18rem;
+  padding: 0 var(--mp-esp-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-fil__lien {
+  /* Cible tactile de 44 px sur une seule ligne tronquée. */
+  line-height: var(--mp-cible);
+  font-weight: 600;
+  text-decoration: none;
+}
+.mp-fil__lien:hover {
+  text-decoration: underline;
+}
+
+.mp-fil__texte {
+  color: var(--mp-texte-doux);
+}
+
+.mp-fil__courant {
+  color: var(--mp-texte);
+  font-weight: 600;
+}
+
+.mp-fil__separateur {
+  display: inline-flex;
+  flex: none;
+  color: var(--mp-texte-doux);
+}
+
+/* Téléphone : le maillon parent et la page courante seulement, tronqués. */
+@media (max-width: 639px) {
+  .mp-fil__liste {
+    flex-wrap: nowrap;
+  }
+  .mp-fil__element:not(:nth-last-child(-n + 2)) {
+    display: none;
+  }
+  .mp-fil__element:last-child {
+    flex: 1 1 auto;
+  }
+  .mp-fil__lien {
+    max-width: 10rem;
+  }
+  .mp-fil__courant {
+    max-width: 100%;
+  }
+}
+
+/* ---------- Onglets (sous-pages) ---------- */
+.mp-onglets {
+  border-bottom: 1px solid var(--mp-bordure);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  /* Bords estompés tant qu'il reste des onglets hors de vue (ombres de défilement). */
+  background:
+    linear-gradient(to right, var(--mp-fond) 30%, transparent) 0 0 / 1.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--mp-fond) 30%, transparent) 100% 0 / 1.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--mp-bordure-controle), transparent) 0 0 / 0.5rem
+      100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--mp-bordure-controle), transparent) 100% 0 /
+      0.5rem 100% no-repeat scroll;
+}
+
+.mp-onglets__liste {
+  display: flex;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-onglets__lien {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  color: var(--mp-texte-doux);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--mp-rayon) var(--mp-rayon) 0 0;
+  /* Soulignement de 3 px sous l'onglet (bord bas : autorisé). */
+  border-bottom: 3px solid transparent;
+  transition:
+    color 150ms,
+    background-color 150ms;
+}
+.mp-onglets__lien:hover {
+  color: var(--mp-texte);
+  background: var(--mp-surface-2);
+}
+.mp-onglets__lien:focus-visible {
+  /* Le conteneur défile : le contour reste à l'intérieur pour ne pas être rogné. */
+  outline-offset: calc(-1 * var(--mp-focus-largeur));
+}
+.mp-onglets__lien[aria-current="page"] {
+  color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  border-bottom-color: var(--mp-primaire);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-onglets__lien {
+    transition: none;
+  }
+}
+
+/* ---------- États vide et erreur ---------- */
+.mp-etat-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-6) var(--mp-esp-4);
+  text-align: center;
+  background: var(--mp-surface);
+  border: 1px dashed var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-etat-vide--compact {
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-4);
+}
+
+.mp-etat-vide__icone {
+  flex: none;
+  color: var(--mp-texte-doux);
+}
+
+.mp-etat-vide__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-etat-vide__texte {
+  color: var(--mp-texte-doux);
+  max-width: 36rem;
+}
+
+.mp-etat-vide__actions,
+.mp-etat-erreur__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-etat-vide__actions {
+  justify-content: center;
+  margin-top: var(--mp-esp-2);
+}
+
+.mp-etat-erreur {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-3);
+}
+
+@media (max-width: 479px) {
+  .mp-etat-vide__actions,
+  .mp-etat-erreur__actions {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+  }
+  .mp-etat-vide__actions > *,
+  .mp-etat-erreur__actions > * {
+    justify-content: center;
+  }
+}

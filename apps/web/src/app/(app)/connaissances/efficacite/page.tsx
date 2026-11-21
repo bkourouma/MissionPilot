@@ -18,6 +18,7 @@ import {
 } from "../../../../components/connaissances/efficacite-outils";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../components/ui/Bouton";
+import { Calcule } from "../../../../components/ui/Calcule";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
@@ -75,7 +76,11 @@ export default async function PageEfficacite({
           "What actually improved the KPIs: recommendation, implementation, measured effect, score per context.",
         )}
       />
-      <Carte titre={t("Scores par contexte", "Scores per context")} niveauTitre={2}>
+      <Carte
+        titre={t("Scores par contexte", "Scores per context")}
+        niveauTitre={2}
+        actions={<Calcule />}
+      >
         {!scores.ok ? (
           <EtatErreur
             titre={t("Les scores n'ont pas pu être chargés.", "The scores could not be loaded.")}
@@ -88,7 +93,14 @@ export default async function PageEfficacite({
               "Aucune recommandation suivie pour l'instant.",
               "No recommendation tracked yet.",
             )}
-          />
+          >
+            <p>
+              {t(
+                "Les scores apparaissent quand des initiatives recommandées sont mises en oeuvre puis mesurées sur un KPI.",
+                "Scores appear once recommended initiatives are implemented and then measured on a KPI.",
+              )}
+            </p>
+          </EtatVide>
         ) : (
           <>
             <p className="mp-texte-petit mp-texte-doux">
@@ -116,6 +128,7 @@ export default async function PageEfficacite({
                 {
                   cle: "score_moyen",
                   entete: t("Score moyen", "Average score"),
+                  alignement: "droite",
                   rendu: (c) => libelleScore(c, scores.donnees.seuil, langue),
                 },
                 {

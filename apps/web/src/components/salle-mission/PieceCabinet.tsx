@@ -60,13 +60,16 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
   const [progression, setProgression] = useState<number | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
   const statut = statutPiece(piece.statut, langue);
 
-  async function agir(action: () => Promise<unknown>) {
+  async function agir(action: () => Promise<unknown>, messageSucces: string) {
     setOccupe(true);
     setErreur(null);
+    setSucces(null);
     try {
       await action();
+      setSucces(messageSucces);
       setPanneau("aucun");
       setMotif("");
       rafraichir();
@@ -80,8 +83,10 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
   /** Retire un dépôt non retenu ; l'erreur s'affiche et la confirmation se referme. */
   async function retirerDepot(depotId: string): Promise<boolean> {
     setErreur(null);
+    setSucces(null);
     try {
       await api.supprimer(cheminDepot(missionId, depotId));
+      setSucces(t("Dépôt retiré.", "Upload removed."));
       rafraichir();
       return true;
     } catch (e) {
@@ -93,11 +98,13 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
   async function deposer() {
     if (!fichier) return;
     setErreur(null);
+    setSucces(null);
     setProgression(0);
     try {
       await televerser(`${cheminPiece(missionId, piece.id)}/depots`, fichier, fichier.name, {
         onProgression: setProgression,
       });
+      setSucces(t("Pièce déposée pour le client.", "Document uploaded on behalf of the client."));
       setFichier(null);
       setPanneau("aucun");
       rafraichir();
@@ -169,8 +176,18 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
                   variante="discret"
                   icone="dossier"
                   disabled={occupe}
+                  aria-label={t(
+                    `Verser ${d.fichier?.nom ?? "ce dépôt"} au dossier de mission`,
+                    `Add ${d.fichier?.nom ?? "this upload"} to the engagement file`,
+                  )}
                   onClick={() =>
-                    void agir(() => api.post(`${cheminDepot(missionId, d.id)}/rattacher`, {}))
+                    void agir(
+                      () => api.post(`${cheminDepot(missionId, d.id)}/rattacher`, {}),
+                      t(
+                        "Dépôt versé au dossier de mission.",
+                        "Upload added to the engagement file.",
+                      ),
+                    )
                   }
                 >
                   {t("Verser au dossier de mission", "Add to the engagement file")}
@@ -220,6 +237,11 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
           <p>{erreur}</p>
         </Alerte>
       ) : null}
+      {succes ? (
+        <Alerte tonalite="succes" annonce="status">
+          <p>{succes}</p>
+        </Alerte>
+      ) : null}
       {panneau === "rejet" ? (
         <div className="mp-pile">
           <ZoneTexte
@@ -243,8 +265,15 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
               chargement={occupe}
               disabled={motif.trim() === ""}
               onClick={() =>
-                void agir(() =>
-                  api.post(`${cheminPiece(missionId, piece.id)}/rejeter`, { motif: motif.trim() }),
+                void agir(
+                  () =>
+                    api.post(`${cheminPiece(missionId, piece.id)}/rejeter`, {
+                      motif: motif.trim(),
+                    }),
+                  t(
+                    "Pièce rejetée : le client est prévenu.",
+                    "Document rejected: the client is notified.",
+                  ),
                 )
               }
             >
@@ -294,7 +323,15 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
               <p className="mp-texte-doux" role="note">
                 {messageAcceptationParDeposant(langue)}
               </p>
-              <Bouton variante="secondaire" onClick={() => setPanneau("rejet")} disabled={occupe}>
+              <Bouton
+                variante="secondaire"
+                onClick={() => setPanneau("rejet")}
+                disabled={occupe}
+                aria-label={t(
+                  `Rejeter la pièce « ${piece.libelle} »`,
+                  `Reject the document "${piece.libelle}"`,
+                )}
+              >
                 {t("Rejeter…", "Reject…")}
               </Bouton>
             </>
@@ -310,23 +347,53 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
               <Bouton
                 icone="succes"
                 chargement={occupe}
+                texteChargement={t("Acceptation…", "Accepting…")}
+                aria-label={t(
+                  `Accepter la pièce « ${piece.libelle} »`,
+                  `Accept the document "${piece.libelle}"`,
+                )}
                 onClick={() =>
-                  void agir(() =>
-                    api.post(`${cheminPiece(missionId, piece.id)}/accepter`, {
-                      rattacher: contexte.documents && verser,
-                    }),
+                  void agir(
+                    () =>
+                      api.post(`${cheminPiece(missionId, piece.id)}/accepter`, {
+                        rattacher: contexte.documents && verser,
+                      }),
+                    t(
+                      contexte.documents && verser
+                        ? "Pièce acceptée et versée au dossier de mission."
+                        : "Pièce acceptée.",
+                      contexte.documents && verser
+                        ? "Document accepted and added to the engagement file."
+                        : "Document accepted.",
+                    ),
                   )
                 }
               >
                 {t("Accepter", "Accept")}
               </Bouton>
-              <Bouton variante="secondaire" onClick={() => setPanneau("rejet")} disabled={occupe}>
+              <Bouton
+                variante="secondaire"
+                onClick={() => setPanneau("rejet")}
+                disabled={occupe}
+                aria-label={t(
+                  `Rejeter la pièce « ${piece.libelle} »`,
+                  `Reject the document "${piece.libelle}"`,
+                )}
+              >
                 {t("Rejeter…", "Reject…")}
               </Bouton>
             </>
           ) : null}
           {peutDeposerPourLeClient(demande, piece, contexte) ? (
-            <Bouton variante="discret" icone="trombone" onClick={() => setPanneau("depot")}>
+            <Bouton
+              variante="discret"
+              icone="trombone"
+              aria-label={t(
+                `Déposer une pièce reçue hors portail pour « ${piece.libelle} »`,
+                `Upload a document received outside the portal for "${piece.libelle}"`,
+              )}
+              onClick={() => setPanneau("depot")}
+            >
               {t(
                 "Déposer une pièce reçue hors portail",
                 "Upload a document received outside the portal",

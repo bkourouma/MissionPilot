@@ -63,7 +63,15 @@ function colonnesBalance(devise: Devise, langue: Langue): ColonneTableau<LigneBa
       entete: libelleTranche(tr.cle, langue),
       alignement: "droite" as const,
       rendu: (l: ValeursBalance) => (
-        <span className="mp-montant">{formaterMontantMineur(l[tr.cle], devise, langue)}</span>
+        <span
+          className={
+            (tr.cle === "j61_90" || tr.cle === "plus_90") && l[tr.cle] > 0
+              ? "mp-montant mp-montant--retard"
+              : "mp-montant"
+          }
+        >
+          {formaterMontantMineur(l[tr.cle], devise, langue)}
+        </span>
       ),
     })),
     {
@@ -154,6 +162,12 @@ export default async function PageCreances({
               </button>
             </div>
           </form>
+          <p className="mp-aide-lecture">
+            {t(
+              "Chaque colonne regroupe les montants restant dus selon le retard à la date de référence ; les tranches de plus de 60 jours sont en rouge.",
+              "Each column groups the amounts still due by how late they are on the reference date; buckets over 60 days are shown in red.",
+            )}
+          </p>
           {!balance.ok ? (
             <EtatErreur
               titre={t(
@@ -174,7 +188,7 @@ export default async function PageCreances({
             </EtatVide>
           ) : (
             balance.donnees.devises.map((d) => (
-              <div key={d.devise} className="mp-pile">
+              <div key={d.devise} className="mp-pile mp-chiffres mp-balance">
                 <Tableau
                   legende={t(
                     `Balance âgée au ${formaterDate(balance.donnees.date, "UTC", langue)} en ${libelleDevise(d.devise)}, ancienneté depuis la ${BASE_LIBELLES[balance.donnees.base]}`,
@@ -265,53 +279,58 @@ function FacturesDues({ r, langue }: { r: Chargement<{ elements: Creance[] }>; l
           hrefReessayer="/facturation/creances"
         />
       ) : (
-        <Tableau
-          legende={t(
-            "Factures émises restant dues, par échéance",
-            "Issued invoices still due, by due date",
-          )}
-          lignes={r.donnees.elements}
-          cleLigne={(c) => c.facture_id}
-          messageVide={t("Aucune facture restant due.", "No invoices still due.")}
-          colonnes={[
-            {
-              cle: "facture",
-              entete: t("Facture", "Invoice"),
-              rendu: (c) => (
-                <Link href={`/facturation/${c.facture_id}`} className="mp-sans-coupure">
-                  {c.numero ?? t("Facture", "Invoice")}
-                </Link>
-              ),
-            },
-            {
-              cle: "client",
-              entete: t("Client", "Client"),
-              rendu: (c) => c.client_raison_sociale,
-            },
-            {
-              cle: "echeance",
-              entete: t("Échéance", "Due date"),
-              rendu: (c) => formaterDate(c.date_echeance, "UTC", langue),
-            },
-            {
-              cle: "solde",
-              entete: t("Reste à payer", "Balance due"),
-              alignement: "droite",
-              rendu: (c) => (
-                <span className="mp-montant">
-                  {formaterMontantMineur(c.solde, c.devise, langue)}
-                </span>
-              ),
-            },
-            {
-              cle: "statut",
-              entete: t("Paiement", "Payment"),
-              rendu: (c) => (
-                <BadgePaiement statut={c.statut_paiement} joursRetard={c.jours_retard} />
-              ),
-            },
-          ]}
-        />
+        <div className="mp-chiffres mp-tableau-cliquable">
+          <Tableau
+            legende={t(
+              "Factures émises restant dues, par échéance",
+              "Issued invoices still due, by due date",
+            )}
+            lignes={r.donnees.elements}
+            cleLigne={(c) => c.facture_id}
+            messageVide={t("Aucune facture restant due.", "No invoices still due.")}
+            colonnes={[
+              {
+                cle: "facture",
+                entete: t("Facture", "Invoice"),
+                rendu: (c) => (
+                  <Link
+                    href={`/facturation/${c.facture_id}`}
+                    className="mp-sans-coupure mp-lien-ligne"
+                  >
+                    {c.numero ?? t("Facture", "Invoice")}
+                  </Link>
+                ),
+              },
+              {
+                cle: "client",
+                entete: t("Client", "Client"),
+                rendu: (c) => c.client_raison_sociale,
+              },
+              {
+                cle: "echeance",
+                entete: t("Échéance", "Due date"),
+                rendu: (c) => formaterDate(c.date_echeance, "UTC", langue),
+              },
+              {
+                cle: "solde",
+                entete: t("Reste à payer", "Balance due"),
+                alignement: "droite",
+                rendu: (c) => (
+                  <span className="mp-montant">
+                    {formaterMontantMineur(c.solde, c.devise, langue)}
+                  </span>
+                ),
+              },
+              {
+                cle: "statut",
+                entete: t("Paiement", "Payment"),
+                rendu: (c) => (
+                  <BadgePaiement statut={c.statut_paiement} joursRetard={c.jours_retard} />
+                ),
+              },
+            ]}
+          />
+        </div>
       )}
       <p className="mp-texte-doux mp-note-sous-tableau">
         {t(

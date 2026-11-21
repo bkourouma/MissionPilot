@@ -165,8 +165,33 @@
 }
 
 .mp-copilote__attente {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 1.5rem;
   font-size: var(--mp-taille-s);
   color: var(--mp-texte-doux);
+}
+
+.mp-copilote__points {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: mp-rotation 0.8s linear infinite;
+}
+
+.mp-copilote__compteur--limite {
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-copilote__points {
+    animation: none;
+    border-right-color: currentColor;
+  }
 }
 
 .mp-copilote__mention {

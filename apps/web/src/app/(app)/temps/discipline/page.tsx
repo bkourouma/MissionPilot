@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { creerTraduire } from "@missionpilot/shared";
 import { BadgeStatut, type TonaliteStatut } from "../../../../components/ui/BadgeStatut";
+import { Calcule } from "../../../../components/ui/Calcule";
+import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../components/ui/Tableau";
@@ -97,17 +99,21 @@ export default async function PageDiscipline({
         />
       ) : (
         <>
-          <ul className="mp-totaux">
-            <li className="mp-totaux__element">
-              <span className="mp-totaux__libelle">
-                {t(
-                  `Ensemble, du ${formaterDate(r.donnees.debut, "UTC", langue)} au ${formaterDate(r.donnees.fin, "UTC", langue)}`,
-                  `Overall, from ${formaterDate(r.donnees.debut, "UTC", langue)} to ${formaterDate(r.donnees.fin, "UTC", langue)}`,
-                )}
-              </span>
-              <span className="mp-totaux__valeur">{ratio(r.donnees.total)}</span>
-            </li>
-          </ul>
+          <Carte titre={t("Ensemble de la période", "Whole period")} actions={<Calcule />}>
+            <ul className="mp-totaux">
+              <li className="mp-totaux__element">
+                <span className="mp-totaux__libelle">
+                  {t(
+                    `Du ${formaterDate(r.donnees.debut, "UTC", langue)} au ${formaterDate(r.donnees.fin, "UTC", langue)}`,
+                    `From ${formaterDate(r.donnees.debut, "UTC", langue)} to ${formaterDate(r.donnees.fin, "UTC", langue)}`,
+                  )}
+                </span>
+                <span className="mp-totaux__valeur mp-ratio-discipline">
+                  {ratio(r.donnees.total)}
+                </span>
+              </li>
+            </ul>
+          </Carte>
           <Tableau
             legende={t(
               "Discipline de saisie par collaborateur",
@@ -125,7 +131,7 @@ export default async function PageDiscipline({
                 cle: "ratio",
                 entete: t("Dans les délais", "On time"),
                 alignement: "droite",
-                rendu: ratio,
+                rendu: (e) => <span className="mp-ratio-discipline">{ratio(e)}</span>,
               },
               {
                 cle: "semaines",

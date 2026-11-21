@@ -120,6 +120,8 @@ export function ActionsItemCloture({
           {peutAttester && item.attestation?.attestee ? (
             <Bouton
               variante="discret"
+              chargement={f.enCours}
+              texteChargement={t("Retrait…", "Withdrawing…")}
               aria-label={t(`Retirer l'attestation : ${nom}`, `Withdraw the attestation: ${nom}`)}
               onClick={() => {
                 void f.envoyer(

@@ -17,6 +17,7 @@
   border-radius: var(--mp-rayon);
   font-weight: 600;
   line-height: 1.2;
+  text-align: center;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -34,7 +35,7 @@
   background: var(--mp-or);
   color: var(--mp-sur-or);
 }
-.mp-bouton--primaire:hover:not(:disabled) {
+.mp-bouton--primaire:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--mp-or-survol);
   color: var(--mp-sur-or);
 }
@@ -44,8 +45,9 @@
   border-color: var(--mp-bordure-controle);
   color: var(--mp-texte);
 }
-.mp-bouton--secondaire:hover:not(:disabled) {
+.mp-bouton--secondaire:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--mp-surface-2);
+  border-color: var(--mp-bordure-controle-survol);
   color: var(--mp-texte);
 }
 
@@ -53,25 +55,32 @@
   background: transparent;
   color: var(--mp-primaire);
 }
-.mp-bouton--discret:hover:not(:disabled) {
+.mp-bouton--discret:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--mp-primaire-pale);
-  color: var(--mp-primaire);
+  color: var(--mp-primaire-survol);
 }
 
+/* Danger : aplat danger, texte à fort contraste (clair : blanc 7,4:1 ; sombre : encre 8,6:1). */
 .mp-bouton--danger {
   background: var(--mp-danger);
-  color: var(--mp-surface);
+  color: var(--mp-sur-danger);
 }
-.mp-bouton--danger:hover:not(:disabled) {
-  filter: brightness(0.92);
-  color: var(--mp-surface);
+.mp-bouton--danger:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--mp-danger-survol);
+  color: var(--mp-sur-danger);
+}
+
+/* Pression discrète : un pixel d'enfoncement, sans ombre (Flat Rule). */
+.mp-bouton:active:not(:disabled, [aria-disabled="true"]) {
+  transform: translateY(1px);
 }
 
 .mp-bouton--icone {
   padding: var(--mp-esp-2);
 }
 
-.mp-bouton:disabled {
+.mp-bouton:disabled,
+.mp-bouton[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -80,9 +89,24 @@
   opacity: 0.85;
 }
 
+/* Texte : le libellé et le texte de chargement partagent une cellule ; la largeur reste celle du
+   plus long, le texte masqué reste invisible et hors de l'arbre d'accessibilité. */
+.mp-bouton__texte {
+  display: inline-grid;
+  justify-items: center;
+}
+.mp-bouton__texte > * {
+  grid-area: 1 / 1;
+}
+.mp-bouton__masque {
+  visibility: hidden;
+}
+
+/* L'indicateur occupe la place d'une icône (20 px) : rien ne bouge quand il remplace l'icône. */
 .mp-bouton__indicateur {
-  width: 1em;
-  height: 1em;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
@@ -120,25 +144,69 @@
   min-height: var(--mp-cible);
   padding: var(--mp-esp-2) var(--mp-esp-3);
   background: var(--mp-surface);
+  color: var(--mp-texte);
   border: 1px solid var(--mp-bordure-controle);
   border-radius: var(--mp-rayon);
   /* 16 px minimum : évite le zoom automatique d'iOS au focus. */
   font-size: max(1rem, 16px);
+  transition: border-color var(--mp-duree) var(--mp-sortie);
 }
 
+.mp-champ__controle:hover:not(:disabled, [readonly], :focus-visible) {
+  border-color: var(--mp-bordure-controle-survol);
+}
+
+/* Anneau de focus de 3 px, bordure violette. */
 .mp-champ__controle:focus-visible {
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
   outline-offset: 0;
   border-color: var(--mp-focus);
 }
 
+/* Date, heure, nombre : même hauteur de 44 px et mêmes marges que le texte (iOS les écrase). */
+.mp-champ__controle[type="date"],
+.mp-champ__controle[type="time"],
+.mp-champ__controle[type="datetime-local"],
+.mp-champ__controle[type="month"],
+.mp-champ__controle[type="week"],
+.mp-champ__controle[type="number"] {
+  min-height: var(--mp-cible);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.mp-champ__controle[type="date"],
+.mp-champ__controle[type="time"],
+.mp-champ__controle[type="datetime-local"],
+.mp-champ__controle[type="month"],
+.mp-champ__controle[type="week"] {
+  display: block;
+}
+.mp-champ__controle[type="number"] {
+  text-align: right;
+}
+
+/* Lecture seule : valeur lisible et copiable, aspect distinct d'un champ modifiable. */
+.mp-champ__controle[readonly] {
+  background: var(--mp-fond-lecture-seule);
+  border-style: dashed;
+}
+
+/* Désactivé : fond de lavande profonde, texte doux (jamais de grisé illisible). */
 .mp-champ__controle:disabled {
   background: var(--mp-surface-2);
+  color: var(--mp-texte-doux);
+  -webkit-text-fill-color: var(--mp-texte-doux);
   cursor: not-allowed;
 }
 
+/* Erreur : bordure de 2 px ; le padding compense pour que le champ ne bouge pas. */
 .mp-champ--erreur .mp-champ__controle {
+  padding: calc(var(--mp-esp-2) - 1px) calc(var(--mp-esp-3) - 1px);
   border-color: var(--mp-danger);
   border-width: 2px;
+}
+.mp-champ--erreur .mp-champ__controle:focus-visible {
+  border-color: var(--mp-focus);
 }
 
 .mp-champ__erreur {
@@ -165,6 +233,9 @@
   background-size: 5px 5px;
   background-repeat: no-repeat;
 }
+.mp-champ--erreur .mp-select {
+  padding-right: calc(2.5rem - 1px);
+}
 
 /* ---------- Carte ---------- */
 .mp-carte {
@@ -178,6 +249,28 @@
   box-shadow: var(--mp-ombre);
 }
 
+.mp-carte--dense {
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+}
+
+/* Tons : fond de statut et filet complet de la couleur du statut (jamais de liseré latéral). */
+.mp-carte--creux {
+  background: var(--mp-surface-2);
+}
+.mp-carte--info {
+  background: var(--mp-info-fond);
+  border-color: var(--mp-info);
+}
+.mp-carte--attention {
+  background: var(--mp-attention-fond);
+  border-color: var(--mp-attention);
+}
+.mp-carte--danger {
+  background: var(--mp-danger-fond);
+  border-color: var(--mp-danger);
+}
+
 .mp-carte__entete {
   display: flex;
   flex-wrap: wrap;
@@ -189,11 +282,19 @@
 .mp-carte__titre {
   font-size: var(--mp-taille-l);
   font-weight: 700;
+  text-wrap: balance;
 }
 
 h3.mp-carte__titre,
 h4.mp-carte__titre {
   font-size: var(--mp-taille-m);
+}
+
+.mp-carte__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
 }
 
 .mp-carte__corps {
@@ -251,19 +352,36 @@ h4.mp-carte__titre {
 
 .mp-alerte__contenu {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
   gap: var(--mp-esp-1);
   color: var(--mp-texte);
 }
 
+/* Titre en gras, texte au poids normal : deux niveaux lisibles sans dépendre de la couleur. */
 .mp-alerte__titre {
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .mp-alerte__texte {
   display: flex;
   flex-direction: column;
   gap: var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+.mp-alerte__texte a,
+.mp-alerte__actions a:not(.mp-bouton) {
+  font-weight: 600;
+}
+
+.mp-alerte__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  margin-top: var(--mp-esp-1);
 }
 
 .mp-alerte--info {
@@ -283,203 +401,18 @@ h4.mp-carte__titre {
   background: var(--mp-danger-fond);
 }
 
-/* ---------- Squelette ---------- */
-.mp-squelette__forme {
-  border-radius: var(--mp-rayon);
-  background: linear-gradient(
-    90deg,
-    var(--mp-surface-2) 25%,
-    var(--mp-bordure) 50%,
-    var(--mp-surface-2) 75%
-  );
-  background-size: 200% 100%;
-  animation: mp-reflet 1.4s ease-in-out infinite;
-}
-
-.mp-squelette__titre {
-  height: 1.75rem;
-  width: 40%;
-  margin-bottom: var(--mp-esp-4);
-}
-
-.mp-squelette__ligne {
-  height: 1rem;
-  margin-bottom: var(--mp-esp-3);
-}
-
-@keyframes mp-reflet {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
-}
-
-/* ---------- Tableau ---------- */
-.mp-tableau {
-  overflow-x: auto;
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-bordure);
-  border-radius: var(--mp-rayon-l);
-}
-
-.mp-tableau__table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.mp-tableau__legende {
-  padding: var(--mp-esp-3) var(--mp-esp-4);
-  text-align: left;
-  font-weight: 650;
-}
-
-.mp-tableau th,
-.mp-tableau td {
-  padding: var(--mp-esp-3) var(--mp-esp-4);
-  text-align: left;
-  /* Les liens de 44 px et le texte d'une même ligne se centrent sur le même axe. */
-  vertical-align: middle;
-  border-bottom: 1px solid var(--mp-bordure);
-}
-
-.mp-tableau th {
-  background: var(--mp-surface-2);
-  color: var(--mp-texte-doux);
-  font-size: var(--mp-taille-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.mp-tableau .mp-aligne-droite {
-  text-align: right;
-}
-
-.mp-tableau tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.mp-tableau__vide {
-  padding: var(--mp-esp-5);
-  text-align: center;
-  color: var(--mp-texte-doux);
-  background: var(--mp-surface);
-  border: 1px dashed var(--mp-bordure-controle);
-  border-radius: var(--mp-rayon-l);
-}
-
-/* Téléphone : une fiche par ligne. */
-@media (max-width: 639px) {
-  .mp-tableau {
-    background: transparent;
-    border: 0;
-  }
-  .mp-tableau thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-  }
-  .mp-tableau__table,
-  .mp-tableau tbody,
-  .mp-tableau tr,
-  .mp-tableau td {
-    display: block;
-  }
-  .mp-tableau tr {
-    margin-bottom: var(--mp-esp-3);
-    background: var(--mp-surface);
-    border: 1px solid var(--mp-bordure);
-    border-radius: var(--mp-rayon-l);
-  }
-  .mp-tableau td {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--mp-esp-3);
-    padding: var(--mp-esp-2) var(--mp-esp-3);
-    text-align: right;
-  }
-  .mp-tableau td::before {
-    content: attr(data-libelle);
-    color: var(--mp-texte-doux);
-    font-weight: 600;
-    text-align: left;
-  }
-  .mp-tableau tbody tr td:last-child {
-    border-bottom: 0;
-  }
-}
-
-/* ---------- Pagination ---------- */
-.mp-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mp-esp-3);
-}
-
-.mp-pagination__resume {
-  color: var(--mp-texte-doux);
-  font-size: var(--mp-taille-s);
-}
-
-.mp-pagination__liste {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--mp-esp-1);
-  padding: 0;
-  list-style: none;
-}
-
-.mp-pagination__lien {
+/* ---------- Marque « Calculé » (globale : pastille <Calcule />) ---------- */
+/* Valeur issue d'un moteur de calcul testé, jamais du modèle de langage. */
+.mp-calcule {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--mp-esp-1);
-  min-width: var(--mp-cible);
-  min-height: var(--mp-cible);
-  padding: 0 var(--mp-esp-3);
-  border: 1px solid var(--mp-bordure);
-  border-radius: var(--mp-rayon);
-  background: var(--mp-surface);
-  color: var(--mp-texte);
-  text-decoration: none;
+  padding: 0.125rem var(--mp-esp-2);
+  border-radius: 999px;
+  background: var(--mp-neutre-fond);
+  color: var(--mp-neutre);
+  font-size: var(--mp-taille-xs);
   font-weight: 600;
-}
-
-a.mp-pagination__lien:hover {
-  background: var(--mp-surface-2);
-  color: var(--mp-texte);
-}
-
-.mp-pagination__lien[aria-current="page"] {
-  background: var(--mp-primaire);
-  border-color: var(--mp-primaire);
-  color: var(--mp-sur-primaire);
-}
-
-.mp-pagination__lien[aria-disabled="true"] {
-  color: var(--mp-texte-doux);
-  background: var(--mp-surface-2);
-  cursor: not-allowed;
-}
-
-.mp-pagination__ellipse {
-  padding: 0 var(--mp-esp-1);
-  color: var(--mp-texte-doux);
-}
-
-/* Téléphone : précédente / suivante seulement, plus le résumé. */
-@media (max-width: 479px) {
-  .mp-pagination__numero,
-  .mp-pagination__ellipse {
-    display: none;
-  }
+  line-height: 1.4;
+  white-space: nowrap;
 }

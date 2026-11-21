@@ -1,0 +1,63 @@
+/* Compléments de lecture de la due diligence (lot UX 3) : jetons uniquement, aucune couleur en dur. */
+
+/* Fieldset sans cadre natif (choix des rapports à joindre). */
+.mp-dd-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-dd-groupe > legend {
+  padding: 0;
+  font-weight: 650;
+}
+
+/* Faits d'une action ou d'une version : intitulé discret, valeur en dessous ou à côté. */
+.mp-dd-faits {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  margin: 0;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-dd-faits dt {
+  color: var(--mp-texte-doux);
+}
+
+.mp-dd-faits dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 640px) {
+  .mp-dd-faits {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+}
+
+/* Chaîne de valeur : parts de coût et de marge en chiffres alignés. */
+.mp-chaine__parts {
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-dd-legende-calcul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  margin: 0 0 var(--mp-esp-2);
+}
+
+/* Titre de bloc suivi de la marque « Calculé ». */
+.mp-dd-titre-calcule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}

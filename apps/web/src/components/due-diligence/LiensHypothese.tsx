@@ -29,6 +29,7 @@ import { BadgeSolidite } from "../preuves/BadgeSolidite";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
+import { EtatVide } from "../ui/EtatListe";
 import { Select } from "../ui/Select";
 import { ChampsAffirmation } from "./ChampsAffirmation";
 
@@ -107,11 +108,26 @@ function LigneLien({
         </Alerte>
       ) : null}
       <div className="mp-barre-actions mp-barre-actions--compacte">
-        <Link className="mp-lien-action" href={hrefAssertionRegistre(missionId, lien.assertion_id)}>
+        <Link
+          className="mp-lien-action"
+          href={hrefAssertionRegistre(missionId, lien.assertion_id)}
+          aria-label={t(
+            `Voir l'assertion et ses sources : ${tronquer(lien.enonce, 60)}`,
+            `View the statement and its sources: ${tronquer(lien.enonce, 60)}`,
+          )}
+        >
           {t("Voir l'assertion et ses sources", "View the statement and its sources")}
         </Link>
         {peutEcrire ? (
-          <Bouton variante="secondaire" disabled={enCours} onClick={() => void delier()}>
+          <Bouton
+            variante="secondaire"
+            disabled={enCours}
+            aria-label={t(
+              `Délier de l'hypothèse : ${tronquer(lien.enonce, 60)}`,
+              `Unlink from the hypothesis: ${tronquer(lien.enonce, 60)}`,
+            )}
+            onClick={() => void delier()}
+          >
             {t("Délier de l'hypothèse", "Unlink from the hypothesis")}
           </Bouton>
         ) : null}
@@ -183,12 +199,14 @@ export function LiensHypothese({
   return (
     <div className="mp-dd-pile">
       {liens.length === 0 ? (
-        <p className="mp-texte-doux">
-          {t(
-            "Aucune assertion n'est liée à cette hypothèse : le moteur n'a rien à évaluer et l'indication est « non concluante ».",
-            "No statement is linked to this hypothesis: the engine has nothing to assess and the indication is “inconclusive”.",
-          )}
-        </p>
+        <EtatVide icone="bulle" titre={t("Aucune assertion liée", "No linked statement")}>
+          <p>
+            {t(
+              "Le moteur n'a rien à évaluer : l'indication est « non concluante ». Liez une assertion existante ou créez-en une ci-dessous.",
+              "The engine has nothing to assess: the indication is “inconclusive”. Link an existing statement or create one below.",
+            )}
+          </p>
+        </EtatVide>
       ) : (
         <ul
           className="mp-dd-liste"

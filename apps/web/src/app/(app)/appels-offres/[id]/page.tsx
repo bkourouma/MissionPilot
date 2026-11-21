@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import "../../../../components/appels-offres/appels-offres.css";
 import { ActionsStatutAo } from "../../../../components/appels-offres/ActionsAo";
+import { NavigationFicheAo } from "../../../../components/appels-offres/NavigationFicheAo";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
@@ -12,9 +12,6 @@ import { chargerServeur } from "../../../../lib/api-serveur";
 import {
   droitsAppelsOffres,
   hrefFiche,
-  hrefGoNoGo,
-  hrefMatrice,
-  hrefRetroplanning,
   libelleStatutAo,
   tonaliteStatutAo,
   type FicheDetail,
@@ -80,20 +77,8 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
             {libelleStatutAo(f.statut, langue)}
           </BadgeStatut>
         }
-        actions={
-          <>
-            <Link href={hrefGoNoGo(f.id)} className="mp-lien-ligne">
-              Go/no-go
-            </Link>
-            <Link href={hrefMatrice(f.id)} className="mp-lien-ligne">
-              {t("Matrice de conformité", "Compliance matrix")}
-            </Link>
-            <Link href={hrefRetroplanning(f.id)} className="mp-lien-ligne">
-              {t("Rétro-planning", "Backward schedule")}
-            </Link>
-          </>
-        }
       />
+      <NavigationFicheAo id={f.id} />
 
       {droits.gerer ? <ActionsStatutAo id={f.id} statut={f.statut} /> : null}
 

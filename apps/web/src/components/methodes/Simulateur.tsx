@@ -13,7 +13,7 @@ import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
-import { ChampsContexte } from "./ChampsContexte";
+import { ChampsContexte, focaliserPremiereErreur } from "./ChampsContexte";
 import { JournalModulation, VueDifferentiel } from "./ResultatModulation";
 
 /**
@@ -32,6 +32,8 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const refResultat = useRef<HTMLDivElement>(null);
+  const refErreur = useRef<HTMLDivElement>(null);
+  const refFormulaire = useRef<HTMLFormElement>(null);
 
   async function simuler(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,7 +42,11 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
     const b = construireContexte(apres, facteurs, langue);
     setErreursAvant(a.ok ? {} : a.erreurs);
     setErreursApres(b.ok ? {} : b.erreurs);
-    if (!a.ok || !b.ok) return;
+    if (!a.ok || !b.ok) {
+      // Les erreurs s'affichent au rendu suivant : le focus va au premier champ à corriger.
+      setTimeout(() => focaliserPremiereErreur(refFormulaire.current), 0);
+      return;
+    }
     setEnCours(true);
     try {
       const r = await api.post<Simulation>(`/api/methodes/versions/${versionId}/simulation`, {
@@ -51,13 +57,14 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
       setTimeout(() => refResultat.current?.focus(), 0);
     } catch (err) {
       setErreur(messageMethodes(err, langue) ?? messageErreur(err));
+      setTimeout(() => refErreur.current?.focus(), 0);
     } finally {
       setEnCours(false);
     }
   }
 
   return (
-    <form className="mp-pile" noValidate onSubmit={simuler}>
+    <form ref={refFormulaire} className="mp-pile" noValidate onSubmit={simuler}>
       <div className="mp-grille-cartes">
         <Carte titre={t("Contexte A", "Context A")}>
           <ChampsContexte
@@ -89,7 +96,11 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
         </Bouton>
       </div>
       {erreur ? (
-        <Alerte tonalite="danger" titre={t("Simulation impossible", "Simulation not possible")}>
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Simulation impossible", "Simulation not possible")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}

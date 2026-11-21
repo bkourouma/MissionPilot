@@ -5,6 +5,7 @@ import { FormulaireCreationGrille } from "../../../components/notation/Formulair
 import { PonderationsGrille } from "../../../components/notation/PonderationsGrille";
 import "../../../components/notation/notation.css";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../components/ui/Bouton";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
@@ -54,17 +55,19 @@ export default async function PageGrillesNotation({
           "Dimensions, familles et pondérations par secteur qui servent au calcul des notations. Une grille du cabinet ne sert qu'une fois validée par un expert métier.",
           "Dimensions, families and sector weightings used to compute ratings. A firm framework is used only once approved by a business expert.",
         )}
+        actions={
+          voirBanqueEtCalibration ? (
+            <>
+              <Link href="/notation/banque" className={classesBouton("secondaire")}>
+                {t("Banque d'items", "Item bank")}
+              </Link>
+              <Link href="/notation/calibrations" className={classesBouton("secondaire")}>
+                {t("Calibration des évaluateurs", "Rater calibration")}
+              </Link>
+            </>
+          ) : undefined
+        }
       />
-
-      {voirBanqueEtCalibration ? (
-        <p>
-          {t("Voir aussi :", "See also:")}{" "}
-          <Link href="/notation/banque">{t("banque d'items", "item bank")}</Link> ·{" "}
-          <Link href="/notation/calibrations">
-            {t("calibration des évaluateurs", "rater calibration")}
-          </Link>
-        </p>
-      ) : null}
 
       <Carte titre={t("Grille générique CabinetPilot", "CabinetPilot generic framework")}>
         <div className="mp-notation__section">

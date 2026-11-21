@@ -97,12 +97,21 @@ export default async function PageQualite({
               missions={missions.donnees.elements.map((m) => ({ id: m.id, intitule: m.intitule }))}
             />
           ) : (
-            <p className="mp-texte-doux">
-              {t(
-                "La liste des missions n'a pas pu être chargée : rechargez la page pour ouvrir un suivi.",
-                "The list of engagements could not be loaded: reload the page to open a follow-up.",
+            <EtatErreur
+              titre={t(
+                "La liste des missions n'a pas pu être chargée.",
+                "The list of engagements could not be loaded.",
               )}
-            </p>
+              message={
+                missions && !missions.ok
+                  ? missions.message
+                  : t(
+                      "Réessayez pour pouvoir ouvrir un suivi.",
+                      "Try again to be able to open a follow-up.",
+                    )
+              }
+              hrefReessayer={hrefQualite(filtres)}
+            />
           )}
         </Carte>
       ) : null}

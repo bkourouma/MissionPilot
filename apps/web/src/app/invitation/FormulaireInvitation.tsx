@@ -178,6 +178,13 @@ export function FormulaireInvitation() {
         value={confirmation}
         onChange={(e) => setConfirmation(e.target.value)}
         erreur={erreurs.confirmation}
+        aide={
+          confirmation.length > 0 && confirmation === motDePasse ? (
+            <span className="mp-indication-ok">
+              {t("Les mots de passe correspondent.", "The passwords match.")}
+            </span>
+          ) : undefined
+        }
       />
       <Bouton
         type="submit"

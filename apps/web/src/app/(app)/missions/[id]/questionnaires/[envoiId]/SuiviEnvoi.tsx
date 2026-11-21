@@ -454,7 +454,7 @@ function LigneRepondant({
             erreur={f.erreurGlobale}
             succes={annonce}
             refAlerte={f.refAlerte}
-            titreErreur={t(`Relance de ${r.nom} impossible`, `Reminder for ${r.nom} impossible`)}
+            titreErreur={t(`Relance de ${r.nom} impossible`, `Could not remind ${r.nom}`)}
           />
         </div>
       ) : null}

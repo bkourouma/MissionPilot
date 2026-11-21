@@ -147,8 +147,11 @@ export function DecisionDerogation({
   const langue = useLangue();
   const f = useFormulaire<"commentaire">();
   const [commentaire, setCommentaire] = useState("");
+  // Bouton à l'origine de l'envoi : l'indicateur « en cours » s'affiche sur lui seul.
+  const [choix, setChoix] = useState<"approuve" | "refuse" | null>(null);
 
   async function decider(decision: "approuve" | "refuse") {
+    setChoix(decision);
     const validation: Resultat<
       { etape: string; decision: string; commentaire: string | null },
       "commentaire"
@@ -188,12 +191,18 @@ export function DecisionDerogation({
         value={commentaire}
         onChange={(e) => setCommentaire(e.target.value)}
         erreur={f.erreurs.commentaire}
+        aide={t(
+          "Facultatif pour approuver ; obligatoire pour refuser.",
+          "Optional to approve; required to refuse.",
+        )}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           type="button"
           icone="succes"
-          chargement={f.enCours}
+          chargement={f.enCours && choix === "approuve"}
+          texteChargement={t("Enregistrement…", "Saving…")}
+          disabled={f.enCours}
           onClick={() => void decider("approuve")}
         >
           {t("Approuver", "Approve")}
@@ -201,6 +210,8 @@ export function DecisionDerogation({
         <Bouton
           type="button"
           variante="danger"
+          chargement={f.enCours && choix === "refuse"}
+          texteChargement={t("Enregistrement…", "Saving…")}
           disabled={f.enCours}
           onClick={() => void decider("refuse")}
         >

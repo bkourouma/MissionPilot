@@ -87,6 +87,105 @@ dl.mp-totaux dd {
   font-weight: 700;
 }
 
+/* ---------- Chiffres tabulaires dans les tableaux (enveloppe .mp-chiffres) ---------- */
+.mp-chiffres .mp-tableau td.mp-aligne-droite,
+.mp-chiffres .mp-tableau th.mp-aligne-droite {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Tableau à lignes cliquables : le lien de la première colonne couvre toute la ligne ---------- */
+.mp-tableau-cliquable .mp-tableau tbody tr {
+  position: relative;
+}
+.mp-tableau-cliquable .mp-tableau tbody tr:hover {
+  background: var(--mp-surface-2);
+}
+.mp-tableau-cliquable .mp-lien-ligne::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.mp-tableau-cliquable .mp-lien-ligne:focus-visible {
+  outline: none;
+}
+.mp-tableau-cliquable .mp-lien-ligne:focus-visible::after {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: -3px;
+}
+
+/* ---------- Balance âgée : ligne de total et tranches anciennes ---------- */
+.mp-balance .mp-tableau tbody tr:last-child td {
+  background: var(--mp-surface-2);
+  font-weight: 700;
+}
+.mp-montant--retard {
+  color: var(--mp-danger);
+}
+.mp-aide-lecture {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* ---------- Synthèse d'une facture : échéance, net à payer, reste à payer ---------- */
+.mp-synthese {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0;
+  margin: 0;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+.mp-synthese > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+}
+.mp-synthese > div + div {
+  border-top: 1px solid var(--mp-bordure);
+}
+@media (min-width: 640px) {
+  .mp-synthese > div + div {
+    border-top: 0;
+    border-left: 1px solid var(--mp-bordure);
+  }
+}
+.mp-synthese dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+}
+.mp-synthese dd {
+  margin: 0;
+  font-family: var(--mp-police-titre);
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Actions d'une facture : principales, puis sensibles à part ---------- */
+.mp-actions-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+.mp-actions-groupe__titre {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mp-actions-groupe--sensible {
+  padding-top: var(--mp-esp-3);
+  border-top: 1px solid var(--mp-bordure);
+}
+
 /* ---------- Double authentification ---------- */
 .mp-qrcode-bloc {
   display: flex;

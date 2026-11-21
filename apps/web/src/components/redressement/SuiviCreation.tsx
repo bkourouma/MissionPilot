@@ -17,6 +17,7 @@ import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 /**
  * Création du suivi d'un dossier clos : jalons à 6 et 12 mois par défaut, personnalisables
@@ -27,6 +28,7 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
   const t = useT();
   const langue = useLangue();
   const f = useFormulaire<ChampCreationSuivi>();
+  const { refListe, focaliser } = useFocusLignes<HTMLOListElement>();
   const [jalons, setJalons] = useState<SaisieJalon[]>(jalonsParDefaut);
   const verrou = useRef(false);
 
@@ -70,7 +72,7 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
           {f.erreurs.jalons}
         </p>
       ) : null}
-      <ol className="mp-sui-lignes-jalons">
+      <ol ref={refListe} className="mp-sui-lignes-jalons">
         {jalons.map((j, i) => (
           <li key={j.cle} className="mp-sui-ligne-jalon">
             <Champ
@@ -100,7 +102,10 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
               variante="discret"
               disabled={jalons.length <= 1}
               aria-label={t(`Retirer le jalon ${i + 1}`, `Remove milestone ${i + 1}`)}
-              onClick={() => setJalons((l) => l.filter((x) => x.cle !== j.cle))}
+              onClick={() => {
+                setJalons((l) => l.filter((x) => x.cle !== j.cle));
+                focaliser(indexFocusApresRetrait(i, jalons.length - 1));
+              }}
             >
               {t("Retirer", "Remove")}
             </Bouton>
@@ -111,7 +116,10 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
         <Bouton
           variante="secondaire"
           disabled={jalons.length >= RED_SUIVI_JALONS_MAX}
-          onClick={() => setJalons((l) => [...l, jalonVide(moisSuivant(l))])}
+          onClick={() => {
+            setJalons((l) => [...l, jalonVide(moisSuivant(l))]);
+            focaliser(jalons.length);
+          }}
         >
           {t("Ajouter un jalon", "Add a milestone")}
         </Bouton>

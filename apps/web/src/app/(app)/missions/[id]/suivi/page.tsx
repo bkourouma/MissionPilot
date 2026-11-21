@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
+import { Calcule } from "../../../../../components/ui/Calcule";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { Tableau, type ColonneTableau } from "../../../../../components/ui/Tableau";
@@ -127,7 +128,12 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
 
       <Carte
         titre={t("Synthèse de la mission", "Engagement summary")}
-        actions={<BadgeStatut tonalite={total.tonalite}>{total.libelle}</BadgeStatut>}
+        actions={
+          <div className="mp-barre-actions mp-barre-actions--compacte">
+            <Calcule />
+            <BadgeStatut tonalite={total.tonalite}>{total.libelle}</BadgeStatut>
+          </div>
+        }
       >
         <div className="mp-pile">
           <ul className="mp-totaux">

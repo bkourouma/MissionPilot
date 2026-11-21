@@ -101,6 +101,7 @@ export function GenerationProposition({
           value={s.type_mission_id}
           onChange={(e) => setS((x) => ({ ...x, type_mission_id: e.target.value }))}
           erreur={f.erreurs.type_mission_id}
+          autoFocus
         />
         <Champ
           libelle={t("Intitulé (facultatif)", "Title (optional)")}

@@ -60,13 +60,25 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
     activation.envoyer(
       { ok: true, charge: { actif: !utilisateur.actif } },
       (c) => api.patch(chemin, c),
-      { messageSpecifique: specifique },
+      {
+        succes: utilisateur.actif
+          ? t(
+              `Compte de ${utilisateur.nom} désactivé.`,
+              `Account of ${utilisateur.nom} deactivated.`,
+            )
+          : t(
+              `Compte de ${utilisateur.nom} réactivé.`,
+              `Account of ${utilisateur.nom} reactivated.`,
+            ),
+        messageSpecifique: specifique,
+      },
     );
 
   return (
     <div className="mp-pile">
       <RetourFormulaire
         erreur={activation.erreurGlobale}
+        succes={activation.succes}
         refAlerte={activation.refAlerte}
         titreErreur={t("Modification impossible", "Unable to update")}
       />
@@ -75,6 +87,7 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
           variante="secondaire"
           icone="crayon"
           aria-expanded={ouvert}
+          aria-controls={`roles-${utilisateur.id}`}
           onClick={() => setOuvert((v) => !v)}
           aria-label={t(
             `Modifier les rôles de ${utilisateur.nom}`,
@@ -126,6 +139,7 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
       {ouvert ? (
         <form
           ref={f.refFormulaire}
+          id={`roles-${utilisateur.id}`}
           className="mp-formulaire"
           noValidate
           onSubmit={enregistrerRoles}

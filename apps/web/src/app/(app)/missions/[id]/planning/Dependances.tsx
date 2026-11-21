@@ -50,6 +50,7 @@ export function Dependances({ missionId, dependances, taches, modifiable }: Depe
     <div className="mp-pile">
       <RetourFormulaire
         erreur={suppr.erreurGlobale}
+        succes={suppr.succes}
         refAlerte={suppr.refAlerte}
         titreErreur={t("Suppression impossible", "Could not delete")}
       />
@@ -92,8 +93,15 @@ export function Dependances({ missionId, dependances, taches, modifiable }: Depe
                   libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
                   texteChargement={t("Suppression…", "Deleting…")}
                   action={() =>
-                    suppr.envoyer({ ok: true, charge: null }, () =>
-                      api.supprimer(`${base}/${encodeURIComponent(d.id)}`),
+                    suppr.envoyer(
+                      { ok: true, charge: null },
+                      () => api.supprimer(`${base}/${encodeURIComponent(d.id)}`),
+                      {
+                        succes: t(
+                          "Dépendance supprimée : le planning est recalculé.",
+                          "Dependency deleted: the schedule is recalculated.",
+                        ),
+                      },
                     )
                   }
                 />

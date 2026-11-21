@@ -131,6 +131,27 @@
   min-height: var(--mp-cible);
 }
 
+.mp-console__filtres {
+  display: grid;
+  gap: var(--mp-esp-3) var(--mp-esp-4);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  margin-bottom: var(--mp-esp-3);
+}
+
+.mp-console__compte {
+  margin: 0;
+  min-height: var(--mp-cible);
+  display: flex;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .mp-console__filtres {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  }
+}
+
 .mp-console__confirmation {
   margin-top: var(--mp-esp-3);
 }

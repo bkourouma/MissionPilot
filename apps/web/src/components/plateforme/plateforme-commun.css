@@ -9,6 +9,10 @@
   background: var(--mp-surface);
 }
 
+.mp-mdp-genere__ligne .mp-bouton {
+  min-height: var(--mp-cible);
+}
+
 .mp-mdp-genere__ligne {
   display: flex;
   flex-wrap: wrap;
@@ -20,7 +24,8 @@
   flex: 1 1 14rem;
   min-width: 0;
   font-family: monospace;
-  letter-spacing: 0.02em;
+  font-size: var(--mp-taille-l);
+  letter-spacing: 0.04em;
 }
 
 .mp-confirmation-plateforme {

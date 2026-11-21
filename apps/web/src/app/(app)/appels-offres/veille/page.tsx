@@ -12,6 +12,7 @@ import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
+import { Icone } from "../../../../components/ui/Icone";
 import { Select } from "../../../../components/ui/Select";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { droitsAppelsOffres } from "../../../../lib/appels-offres";
@@ -159,21 +160,39 @@ export default async function PageVeille({
         ) : (
           <>
             <VeilleResultats resultats={r.donnees.elements} gerer={droits.gerer} />
-            <nav
-              className="mp-ao__actions"
-              aria-label={t("Pagination des avis", "Notices pagination")}
-            >
-              {filtres.page > 1 ? (
-                <Link href={hrefVeille({ ...filtres, page: filtres.page - 1 })}>
-                  {t("Page précédente", "Previous page")}
-                </Link>
-              ) : null}
-              {filtres.page * PAGE_VEILLE < r.donnees.total ? (
-                <Link href={hrefVeille({ ...filtres, page: filtres.page + 1 })}>
-                  {t("Page suivante", "Next page")}
-                </Link>
-              ) : null}
-            </nav>
+            {filtres.page > 1 || filtres.page * PAGE_VEILLE < r.donnees.total ? (
+              <nav
+                className="mp-pagination"
+                aria-label={t("Pagination des avis", "Notices pagination")}
+              >
+                <ul className="mp-pagination__liste">
+                  {filtres.page > 1 ? (
+                    <li>
+                      <Link
+                        className="mp-pagination__lien"
+                        href={hrefVeille({ ...filtres, page: filtres.page - 1 })}
+                        rel="prev"
+                      >
+                        <Icone nom="chevronGauche" taille={18} />
+                        <span>{t("Page précédente", "Previous page")}</span>
+                      </Link>
+                    </li>
+                  ) : null}
+                  {filtres.page * PAGE_VEILLE < r.donnees.total ? (
+                    <li>
+                      <Link
+                        className="mp-pagination__lien"
+                        href={hrefVeille({ ...filtres, page: filtres.page + 1 })}
+                        rel="next"
+                      >
+                        <span>{t("Page suivante", "Next page")}</span>
+                        <Icone nom="chevronDroit" taille={18} />
+                      </Link>
+                    </li>
+                  ) : null}
+                </ul>
+              </nav>
+            ) : null}
           </>
         )}
       </section>

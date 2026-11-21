@@ -141,6 +141,15 @@ export default async function PageCompetences() {
               message={referentiel.message}
               hrefReessayer="/connaissances/competences"
             />
+          ) : referentiel.donnees.elements.length === 0 ? (
+            <EtatVide titre={t("Le référentiel est vide.", "The framework is empty.")} icone="plus">
+              <p>
+                {t(
+                  "Ajoutez une première compétence avec le formulaire ci-dessous.",
+                  "Add a first skill with the form below.",
+                )}
+              </p>
+            </EtatVide>
           ) : (
             <ul className="mp-liste-lignes">
               {referentiel.donnees.elements.map((c) => (

@@ -7,6 +7,7 @@ import {
 } from "../../../../components/facturation/FormulaireDebours";
 import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { LigneDebours } from "../../../../components/facturation/LigneDebours";
+import { Alerte } from "../../../../components/ui/Alerte";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { saisieDeboursVide, type Debours } from "../../../../lib/debours";
 import { aujourdhuiIso } from "../../../../lib/missions";
@@ -18,12 +19,18 @@ export function DeclarationDebours({ missions }: { missions: MissionDebours[] })
   const [ouvert, setOuvert] = useState(false);
   if (missions.length === 0) {
     return (
-      <p className="mp-texte-doux">
-        {t(
-          "Aucune mission ouverte ne vous est accessible : un débours se déclare sur une mission dont vous faites partie.",
-          "No open engagement is available to you: an expense is declared on an engagement you are part of.",
-        )}
-      </p>
+      <Alerte
+        tonalite="info"
+        annonce="aucune"
+        titre={t("Déclaration impossible pour l'instant", "Declaration not possible for now")}
+      >
+        <p>
+          {t(
+            "Aucune mission ouverte ne vous est accessible : un débours se déclare sur une mission dont vous faites partie.",
+            "No open engagement is available to you: an expense is declared on an engagement you are part of.",
+          )}
+        </p>
+      </Alerte>
     );
   }
   if (!ouvert) {

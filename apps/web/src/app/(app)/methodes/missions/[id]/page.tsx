@@ -12,6 +12,7 @@ import {
 } from "../../../../../components/methodes/MethodeMissionFormulaires";
 import { JournalModulation } from "../../../../../components/methodes/ResultatModulation";
 import { VueMethodeEffective } from "../../../../../components/methodes/VuesMethode";
+import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
@@ -146,12 +147,17 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
                   }))}
               />
             ) : (
-              <p>
-                {t(
+              <Alerte
+                tonalite="danger"
+                titre={t(
                   "Le catalogue des méthodes n'a pas pu être chargé.",
                   "The method catalog could not be loaded.",
                 )}
-              </p>
+              >
+                <p>
+                  <Link href={hrefMissionMethode(id)}>{t("Réessayer", "Try again")}</Link>
+                </p>
+              </Alerte>
             )}
           </Carte>
         ) : (
@@ -223,6 +229,14 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
           ) : null}
 
           <Carte titre={t("Historique", "History")}>
+            {(m.historique ?? []).length === 0 ? (
+              <p className="mp-texte-doux">
+                {t(
+                  "Aucun événement : la liaison, les changements de contexte et les migrations s'inscriront ici.",
+                  "No event yet: linking, context changes and migrations will be recorded here.",
+                )}
+              </p>
+            ) : null}
             <ul className="mp-liste-simple">
               {(m.historique ?? []).map((h) => (
                 <li key={h.id}>
@@ -243,7 +257,18 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
               {t("Dérogations", "Waivers")}
             </h2>
             {!d.ok ? (
-              <p>{d.message}</p>
+              <Alerte
+                tonalite="danger"
+                titre={t(
+                  "Les dérogations n'ont pas pu être chargées.",
+                  "The waivers could not be loaded.",
+                )}
+              >
+                <p>{d.message}</p>
+                <p>
+                  <Link href={hrefMissionMethode(id)}>{t("Réessayer", "Try again")}</Link>
+                </p>
+              </Alerte>
             ) : d.donnees.elements.length === 0 ? (
               <p>
                 {t(

@@ -84,7 +84,10 @@ export async function ControleNote({
             </BadgeStatut>{" "}
             {p.libelle}{" "}
             {avecLiens ? (
-              <Link href={hrefEcranDossier(missionId, dossierId, p.ecran)}>
+              <Link
+                href={hrefEcranDossier(missionId, dossierId, p.ecran)}
+                aria-label={t(`Corriger : ${p.libelle}`, `Fix: ${p.libelle}`)}
+              >
                 {t("Corriger", "Fix")}
               </Link>
             ) : null}

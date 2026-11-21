@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Alerte } from "../../../components/ui/Alerte";
+import { BadgeStatut } from "../../../components/ui/BadgeStatut";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../components/ui/EtatListe";
@@ -130,13 +131,17 @@ export default async function PageParametresCabinet({
                       {f.nationale
                         ? t(" · fête nationale", " · national holiday")
                         : t(" · propre au cabinet", " · specific to the firm")}
-                      {f.a_valider
-                        ? t(
-                            " · proposé par défaut, à vérifier",
-                            " · suggested by default, to be checked",
-                          )
-                        : ""}
                     </span>
+                    {f.a_valider ? (
+                      <span>
+                        <BadgeStatut tonalite="attention">
+                          {t(
+                            "Proposé par défaut, à vérifier",
+                            "Suggested by default, to be checked",
+                          )}
+                        </BadgeStatut>
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mp-barre-actions mp-barre-actions--compacte">
                     {f.a_valider ? <ValidationFerie ferie={f} /> : null}

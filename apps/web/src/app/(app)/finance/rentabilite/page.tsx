@@ -4,6 +4,7 @@ import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { classesBouton } from "../../../../components/ui/Bouton";
+import { Calcule } from "../../../../components/ui/Calcule";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
@@ -128,6 +129,7 @@ function Resultats({ r, langue }: { r: ReponseRentabilite; langue: Langue }) {
   return (
     <>
       <Carte
+        actions={<Calcule />}
         titre={t(
           `Total du ${formaterDate(r.du)} au ${formaterDate(r.au)}`,
           `Total from ${formaterDate(r.du, "UTC", langue)} to ${formaterDate(r.au, "UTC", langue)}`,

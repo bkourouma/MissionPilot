@@ -9,7 +9,7 @@ import {
 } from "@missionpilot/shared";
 import { Surligne } from "../../../components/connaissances/Surligne";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
-import { Bouton } from "../../../components/ui/Bouton";
+import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { CaseACocher } from "../../../components/ui/CaseACocher";
 import { Carte } from "../../../components/ui/Carte";
 import { Champ } from "../../../components/ui/Champ";
@@ -71,6 +71,10 @@ export default async function PageRecherche({
             name="q"
             minLength={2}
             maxLength={200}
+            aide={t(
+              "Au moins deux caractères ; les accents sont ignorés.",
+              "At least two characters; accents are ignored.",
+            )}
             defaultValue={critere.q}
             placeholder={t(
               "Ex. atelier unique, relances clients…",
@@ -89,10 +93,15 @@ export default async function PageRecherche({
               />
             ))}
           </fieldset>
-          <div>
+          <div className="mp-actions-formulaire">
             <Bouton type="submit" icone="recherche">
               {t("Rechercher", "Search")}
             </Bouton>
+            {critere.q ? (
+              <Link href="/connaissances" className={classesBouton("discret")} prefetch={false}>
+                {t("Effacer la recherche", "Clear the search")}
+              </Link>
+            ) : null}
           </div>
         </form>
       </Carte>
@@ -110,7 +119,14 @@ export default async function PageRecherche({
       ) : r.donnees.elements.length === 0 ? (
         <EtatVide
           titre={t("Aucun résultat dans vos droits.", "No result within your permissions.")}
-        />
+        >
+          <p>
+            {t(
+              "Essayez un mot plus court ou retirez la limite par type.",
+              "Try a shorter word or remove the type limit.",
+            )}
+          </p>
+        </EtatVide>
       ) : (
         <Resultats r={r.donnees} q={critere.q} t={t} langue={langue} />
       )}
@@ -132,6 +148,12 @@ function Resultats({
   const tronques = Object.entries(r.par_type).filter(([, v]) => v?.tronque);
   return (
     <>
+      <p className="mp-texte-petit mp-texte-doux" role="status">
+        {t(
+          `${r.elements.length} résultat(s) pour « ${q} »`,
+          `${r.elements.length} result(s) for "${q}"`,
+        )}
+      </p>
       {tronques.length > 0 ? (
         <p className="mp-texte-petit mp-texte-doux" role="status">
           {t(

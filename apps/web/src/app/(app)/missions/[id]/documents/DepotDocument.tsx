@@ -27,6 +27,7 @@ import {
 } from "../../../../../lib/fichiers";
 import { optionsTypesDocument } from "../../../../../lib/missions";
 import { televerser } from "../../../../../lib/televersement";
+import { useFocusInitial } from "../../../../../components/signatures/useFocusInitial";
 
 export interface DepotDocumentProps {
   missionId: string;
@@ -88,6 +89,7 @@ export function DepotDocument({
   const [progression, setProgression] = useState<number | null>(null);
   const [erreurFichier, setErreurFichier] = useState<string | null>(null);
   const f = useFormulaire<ChampDepot>();
+  useFocusInitial(f.refFormulaire);
   // Fichier déjà téléversé mais pas encore rattaché (reprise après coupure).
   const enAttente = useRef<{ fichier: File; id: string } | null>(null);
 

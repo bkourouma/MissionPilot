@@ -75,18 +75,49 @@ export default async function PageDerogations({
         />
       ) : (
         <>
-          <nav aria-label={t("Filtrer par statut", "Filter by status")} className="mp-badges">
-            <Link href={href(null)} aria-current={statut === null ? "page" : undefined}>
+          <nav
+            aria-label={t("Filtrer par statut", "Filter by status")}
+            className="mp-filtre-segments"
+          >
+            <Link
+              href={href(null)}
+              className="mp-onglets__lien"
+              aria-current={statut === null ? "page" : undefined}
+            >
               {t("Toutes", "All")}
             </Link>
             {STATUTS_DEROGATION.map((s) => (
-              <Link key={s} href={href(s)} aria-current={statut === s ? "page" : undefined}>
+              <Link
+                key={s}
+                href={href(s)}
+                className="mp-onglets__lien"
+                aria-current={statut === s ? "page" : undefined}
+              >
                 {libelleStatutDerogation(s, langue)} ({r.donnees.compteurs[s]})
               </Link>
             ))}
           </nav>
           {r.donnees.elements.length === 0 ? (
-            <EtatVide titre={t("Aucune dérogation.", "No waiver.")} icone="drapeau" />
+            <EtatVide
+              titre={
+                statut
+                  ? t("Aucune dérogation pour ce statut.", "No waiver with this status.")
+                  : t("Aucune dérogation.", "No waiver.")
+              }
+              icone="drapeau"
+            >
+              <p>
+                {statut
+                  ? t(
+                      "Choisissez un autre statut, ou « Toutes », pour élargir la liste.",
+                      'Pick another status, or "All", to widen the list.',
+                    )
+                  : t(
+                      "Une dérogation se demande depuis la méthode d'une mission, pour retirer ou adapter une brique de la méthode.",
+                      "A waiver is requested from an engagement's method, to remove or adapt one of its building blocks.",
+                    )}
+              </p>
+            </EtatVide>
           ) : (
             <ul className="mp-liste-lignes">
               {r.donnees.elements.map((d) => (

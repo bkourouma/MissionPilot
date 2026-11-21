@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../components/ui/EtatListe";
 import { obtenirT } from "../../../lib/i18n/serveur";
 import { CHEMIN_PLATEFORME } from "../../../lib/plateforme-routes";
@@ -17,6 +18,7 @@ export default async function PageCabinets() {
   if (!resultat.ok) {
     return (
       <div className="mp-page">
+        <EnteteDePage titre={t("Cabinets", "Firms")} />
         <EtatErreur
           titre={t(
             "La liste des cabinets n'a pas pu être chargée.",

@@ -183,18 +183,21 @@ export function DocumentsLecture({
           {t(`Éléments relevés (${c.elements.length})`, `Items identified (${c.elements.length})`)}
         </h3>
         {ouvert && nonVerifies > 0 ? (
-          <p>
-            <strong>
-              {t(
-                `${nonVerifies} élément(s) NON retrouvé(s) dans la page citée.`,
-                `${nonVerifies} item(s) NOT found in the cited page.`,
-              )}
-            </strong>{" "}
-            {t(
-              "Relisez-les dans la page avant de valider.",
-              "Review them in the page before approving.",
+          <Alerte
+            tonalite="danger"
+            annonce="aucune"
+            titre={t(
+              `${nonVerifies} élément(s) NON retrouvé(s) dans la page citée.`,
+              `${nonVerifies} item(s) NOT found in the cited page.`,
             )}
-          </p>
+          >
+            <p>
+              {t(
+                "Relisez-les dans la page avant de valider.",
+                "Review them in the page before approving.",
+              )}
+            </p>
+          </Alerte>
         ) : null}
         {c.elements.length === 0 ? (
           <p className="mp-texte-doux">{t("Aucun élément.", "No items.")}</p>

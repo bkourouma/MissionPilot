@@ -219,6 +219,12 @@
   }
 }
 
+/* Montants : jamais coupés entre le nombre et la devise (l'espace est insécable), alignés à droite. */
+.mp-tableau-dense .mp-aligne-droite {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 @media (min-width: 640px) {
   .mp-tableau-dense .mp-tableau th,
   .mp-tableau-dense .mp-tableau td {

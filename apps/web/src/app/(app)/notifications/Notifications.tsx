@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { EVENEMENT_NOTIFICATIONS } from "../../../components/shell/ClocheNotifications";
 import { Alerte } from "../../../components/ui/Alerte";
-import { Bouton } from "../../../components/ui/Bouton";
+import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { api, messageErreur } from "../../../lib/api";
 import { formaterDateHeure } from "../../../lib/format";
 import "./notifications.css";
@@ -134,7 +134,8 @@ export function ElementNotification({ n }: { n: Notification }) {
         {lien ? (
           <Link
             href={lien}
-            className="mp-bouton mp-bouton--secondaire"
+            className={classesBouton("secondaire")}
+            aria-label={`${t("Ouvrir", "Open")} : ${n.titre}`}
             onClick={() => {
               void marquer();
             }}

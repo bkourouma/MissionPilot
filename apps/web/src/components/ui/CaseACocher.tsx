@@ -8,33 +8,48 @@ export interface CaseACocherProps extends Omit<
 > {
   libelle: ReactNode;
   aide?: ReactNode;
+  /** Message d'erreur en ligne (icône + texte), lié à la case par aria-describedby. */
+  erreur?: string;
   id?: string;
 }
 
 /** Case à cocher avec libellé cliquable (cible tactile de 44 px). */
-export function CaseACocher({ libelle, aide, id, className, ...reste }: CaseACocherProps) {
+export function CaseACocher({ libelle, aide, erreur, id, className, ...reste }: CaseACocherProps) {
   const auto = useId();
   const idCase = id ?? auto;
   const idAide = aide ? `${idCase}-aide` : undefined;
+  const idErreur = erreur ? `${idCase}-erreur` : undefined;
+  const classes = ["mp-case", erreur ? "mp-case--erreur" : "", className ?? ""]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div className={className ? `mp-case ${className}` : "mp-case"}>
+    <div className={classes}>
       <input
         {...reste}
         type="checkbox"
         id={idCase}
         className="mp-case__controle"
+        aria-invalid={erreur ? true : reste["aria-invalid"]}
         aria-describedby={
-          [reste["aria-describedby"], idAide].filter(Boolean).join(" ") || undefined
+          [reste["aria-describedby"], idAide, idErreur].filter(Boolean).join(" ") || undefined
         }
       />
-      <label htmlFor={idCase} className="mp-case__libelle">
-        {libelle}
-        {aide ? (
-          <span id={idAide} className="mp-case__aide">
-            {aide}
-          </span>
+      <div className="mp-case__texte">
+        <label htmlFor={idCase} className="mp-case__libelle">
+          {libelle}
+          {aide ? (
+            <span id={idAide} className="mp-case__aide">
+              {aide}
+            </span>
+          ) : null}
+        </label>
+        {erreur ? (
+          <p className="mp-champ__erreur" id={idErreur}>
+            <Icone nom="attention" taille={16} />
+            <span>{erreur}</span>
+          </p>
         ) : null}
-      </label>
+      </div>
     </div>
   );
 }
@@ -75,7 +90,6 @@ export function GroupeCases({
     <fieldset
       className={erreur ? "mp-groupe mp-groupe--erreur" : "mp-groupe"}
       aria-describedby={[idAide, idErreur].filter(Boolean).join(" ") || undefined}
-      aria-invalid={erreur ? true : undefined}
       disabled={desactive}
     >
       <legend className="mp-champ__libelle">

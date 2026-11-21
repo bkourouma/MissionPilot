@@ -22,6 +22,7 @@ import {
   type ChampAction,
   type SaisieAction,
 } from "../../lib/due-diligence-saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -113,9 +114,9 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
     );
   }
 
-  async function retirer() {
-    if (!action) return;
-    await f.envoyer(
+  async function retirer(): Promise<boolean> {
+    if (!action) return false;
+    return f.envoyer(
       validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<ReponseEcriture>(cheminVersionsAction(action.id), {
@@ -261,9 +262,23 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
             : t("Ajouter l'action", "Add the action")}
         </Bouton>
         {correction ? (
-          <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-            {t("Retirer cette action", "Remove this action")}
-          </Bouton>
+          validerRetrait(s.motif, true, langue).ok ? (
+            <BoutonConfirmation
+              libelle={t("Retirer cette action", "Remove this action")}
+              question={t(
+                "Retirer cette action du plan ? Le motif est conservé dans l'historique.",
+                "Remove this action from the plan? The reason is kept in the history.",
+              )}
+              libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+              texteChargement={t("Retrait…", "Removing…")}
+              variante="danger"
+              action={retirer}
+            />
+          ) : (
+            <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
+              {t("Retirer cette action", "Remove this action")}
+            </Bouton>
+          )
         ) : null}
       </div>
     </form>

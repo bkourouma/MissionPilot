@@ -81,6 +81,10 @@ export function FormulaireFacteur() {
           spellCheck={false}
           onChange={(e) => setS({ ...s, code: e.target.value })}
           erreur={f.erreurs.code}
+          aide={t(
+            "Identifiant stable : minuscules, chiffres, « _ », « . » ou « - ».",
+            'Stable identifier: lowercase letters, digits, "_", "." or "-".',
+          )}
         />
         <Select
           libelle={t("Type", "Type")}
@@ -238,8 +242,11 @@ export function DecisionProposition({ propositionId }: { propositionId: string }
   const langue = useLangue();
   const f = useFormulaire<"avis">();
   const [avis, setAvis] = useState("");
+  // Bouton à l'origine de l'envoi : l'indicateur « en cours » s'affiche sur lui seul.
+  const [choix, setChoix] = useState<"accepter" | "refuser" | null>(null);
 
   async function decider(action: "accepter" | "refuser") {
+    setChoix(action);
     const validation: Resultat<{ action: string; avis: string | null }, "avis"> =
       action === "refuser" && !avis.trim()
         ? { ok: false, erreurs: { avis: t("Motiver le refus.", "Give a reason for the refusal.") } }
@@ -272,12 +279,18 @@ export function DecisionProposition({ propositionId }: { propositionId: string }
         value={avis}
         onChange={(e) => setAvis(e.target.value)}
         erreur={f.erreurs.avis}
+        aide={t(
+          "Facultatif pour accepter ; obligatoire pour refuser.",
+          "Optional to accept; required to refuse.",
+        )}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           type="button"
           icone="succes"
-          chargement={f.enCours}
+          chargement={f.enCours && choix === "accepter"}
+          texteChargement={t("Enregistrement…", "Saving…")}
+          disabled={f.enCours}
           onClick={() => void decider("accepter")}
         >
           {t("Accepter", "Accept")}
@@ -285,6 +298,8 @@ export function DecisionProposition({ propositionId }: { propositionId: string }
         <Bouton
           type="button"
           variante="danger"
+          chargement={f.enCours && choix === "refuser"}
+          texteChargement={t("Enregistrement…", "Saving…")}
           disabled={f.enCours}
           onClick={() => void decider("refuser")}
         >

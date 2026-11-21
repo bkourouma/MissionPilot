@@ -37,6 +37,7 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 /**
  * « Nouvelle version de la prévision » (RED-11) : fenêtre (lundi de début, solde bancaire
@@ -63,6 +64,7 @@ export function FormulaireVersionTresorerie({
     libelle: abregerSemaine(i + 1, langue),
   }));
   const f = useFormulaire<ChampVersionTresorerie>();
+  const { refListe, focaliser } = useFocusLignes();
   const [s, setS] = useState<SaisieVersionTresorerie>(() =>
     saisieVersionDepuis(version, devise, aujourdhui),
   );
@@ -203,7 +205,7 @@ export function FormulaireVersionTresorerie({
             )}
           </p>
         ) : (
-          <ul className="mp-red-lignes">
+          <ul ref={refListe} className="mp-red-lignes">
             {s.lignes.map((l, i) => {
               const rattachee = l.echeance_id !== null;
               return (
@@ -263,9 +265,10 @@ export function FormulaireVersionTresorerie({
                       `Retirer la ligne ${i + 1} (${libelleCategorieFlux(l.categorie)}, ${abregerSemaine(Number(l.semaine))})`,
                       `Remove line ${i + 1} (${libelleCategorieFlux(l.categorie, langue)}, ${abregerSemaine(Number(l.semaine), langue)})`,
                     )}
-                    onClick={() =>
-                      setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }))
-                    }
+                    onClick={() => {
+                      setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }));
+                      focaliser(indexFocusApresRetrait(i, s.lignes.length - 1));
+                    }}
                   >
                     {t("Retirer", "Remove")}
                   </Bouton>
@@ -277,7 +280,10 @@ export function FormulaireVersionTresorerie({
         <div className="mp-actions-formulaire">
           <Bouton
             variante="secondaire"
-            onClick={() => setS((x) => ({ ...x, lignes: [...x.lignes, ligneVide()] }))}
+            onClick={() => {
+              setS((x) => ({ ...x, lignes: [...x.lignes, ligneVide()] }));
+              focaliser(s.lignes.length);
+            }}
           >
             {t("Ajouter une ligne", "Add a line")}
           </Bouton>

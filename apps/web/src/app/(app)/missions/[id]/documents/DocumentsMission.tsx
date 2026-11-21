@@ -331,7 +331,7 @@ function HistoriqueDocument({ id, nom }: { id: string; nom: string }) {
         detail: await api.get<DetailDocument>(`/api/documents/${encodeURIComponent(id)}`),
       });
     } catch (e) {
-      setEtat({ phase: "erreur", message: messageErreur(e) });
+      setEtat({ phase: "erreur", message: messageErreur(e, langue) });
     }
   }
 

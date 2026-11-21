@@ -13,8 +13,14 @@ export function ArchivageClient({ client }: { client: Client }) {
   const t = useT();
   const f = useFormulaire<never>();
   const basculer = () =>
-    f.envoyer({ ok: true, charge: { actif: !client.actif } }, (c) =>
-      api.patch(`/api/clients/${encodeURIComponent(client.id)}`, c),
+    f.envoyer(
+      { ok: true, charge: { actif: !client.actif } },
+      (c) => api.patch(`/api/clients/${encodeURIComponent(client.id)}`, c),
+      {
+        succes: client.actif
+          ? t("Client archivé.", "Client archived.")
+          : t("Client réactivé.", "Client reactivated."),
+      },
     );
   return (
     <>
@@ -41,6 +47,7 @@ export function ArchivageClient({ client }: { client: Client }) {
       )}
       <RetourFormulaire
         erreur={f.erreurGlobale}
+        succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur={t("Action impossible", "Action failed")}
       />

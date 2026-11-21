@@ -82,71 +82,79 @@ export function ImputationsFactures({
           )}
         </p>
       ) : (
-        <ul className="mp-imputations">
-          {creances.map((c) => {
-            const autreDevise = c.devise !== devise;
-            return (
-              <li key={c.facture_id} className="mp-imputations__ligne">
-                <div className="mp-imputations__facture">
-                  <p className="mp-imputations__titre">
-                    <strong>
-                      {c.numero
-                        ? t(`Facture ${c.numero}`, `Invoice ${c.numero}`)
-                        : t("Facture", "Invoice")}
-                    </strong>{" "}
-                    <BadgePaiement statut={c.statut_paiement} joursRetard={c.jours_retard} />
-                  </p>
-                  <p className="mp-texte-doux mp-texte-petit">
-                    {t(
-                      `Échéance ${formaterDate(c.date_echeance)} · reste à payer `,
-                      `Due ${formaterDate(c.date_echeance, "UTC", langue)} · balance due `,
-                    )}
-                    <span className="mp-montant">
-                      {formaterMontantMineur(c.solde, c.devise, langue)}
-                    </span>
-                  </p>
-                  {autreDevise ? (
+        <>
+          <p className="mp-champ__aide">
+            {t(
+              "Indiquez le montant à imputer sur chaque facture, au plus son reste à payer.",
+              "Enter the amount to allocate to each invoice, at most its balance due.",
+            )}
+          </p>
+          <ul className="mp-imputations">
+            {creances.map((c) => {
+              const autreDevise = c.devise !== devise;
+              return (
+                <li key={c.facture_id} className="mp-imputations__ligne">
+                  <div className="mp-imputations__facture">
+                    <p className="mp-imputations__titre">
+                      <strong>
+                        {c.numero
+                          ? t(`Facture ${c.numero}`, `Invoice ${c.numero}`)
+                          : t("Facture", "Invoice")}
+                      </strong>{" "}
+                      <BadgePaiement statut={c.statut_paiement} joursRetard={c.jours_retard} />
+                    </p>
                     <p className="mp-texte-doux mp-texte-petit">
                       {t(
-                        `Facture en ${libelleDevise(c.devise)} : choisissez cette devise pour l'imputer.`,
-                        `Invoice in ${libelleDevise(c.devise)}: choose this currency to allocate to it.`,
+                        `Échéance ${formaterDate(c.date_echeance)} · reste à payer `,
+                        `Due ${formaterDate(c.date_echeance, "UTC", langue)} · balance due `,
                       )}
+                      <span className="mp-montant">
+                        {formaterMontantMineur(c.solde, c.devise, langue)}
+                      </span>
                     </p>
-                  ) : null}
-                </div>
-                <div className="mp-imputations__saisie">
-                  <Champ
-                    libelle={t(
-                      `Montant imputé${c.numero ? ` sur ${c.numero}` : ""}`,
-                      `Amount allocated${c.numero ? ` to ${c.numero}` : ""}`,
-                    )}
-                    inputMode="decimal"
-                    disabled={autreDevise}
-                    value={valeurs[c.facture_id] ?? ""}
-                    onChange={(e) => onChange({ ...valeurs, [c.facture_id]: e.target.value })}
-                  />
-                  {!autreDevise ? (
-                    <Bouton
-                      variante="discret"
-                      onClick={() =>
-                        onChange({
-                          ...valeurs,
-                          [c.facture_id]: montantVersSaisie(c.solde, c.devise),
-                        })
-                      }
-                      aria-label={t(
-                        `Imputer tout le reste à payer${c.numero ? ` de ${c.numero}` : ""}`,
-                        `Allocate the entire balance due${c.numero ? ` of ${c.numero}` : ""}`,
+                    {autreDevise ? (
+                      <p className="mp-texte-doux mp-texte-petit">
+                        {t(
+                          `Facture en ${libelleDevise(c.devise)} : choisissez cette devise pour l'imputer.`,
+                          `Invoice in ${libelleDevise(c.devise)}: choose this currency to allocate to it.`,
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mp-imputations__saisie">
+                    <Champ
+                      libelle={t(
+                        `Montant imputé${c.numero ? ` sur ${c.numero}` : ""}`,
+                        `Amount allocated${c.numero ? ` to ${c.numero}` : ""}`,
                       )}
-                    >
-                      {t("Tout le reste", "Full balance")}
-                    </Bouton>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                      inputMode="decimal"
+                      disabled={autreDevise}
+                      value={valeurs[c.facture_id] ?? ""}
+                      onChange={(e) => onChange({ ...valeurs, [c.facture_id]: e.target.value })}
+                    />
+                    {!autreDevise ? (
+                      <Bouton
+                        variante="discret"
+                        onClick={() =>
+                          onChange({
+                            ...valeurs,
+                            [c.facture_id]: montantVersSaisie(c.solde, c.devise),
+                          })
+                        }
+                        aria-label={t(
+                          `Imputer tout le reste à payer${c.numero ? ` de ${c.numero}` : ""}`,
+                          `Allocate the entire balance due${c.numero ? ` of ${c.numero}` : ""}`,
+                        )}
+                      >
+                        {t("Tout le reste", "Full balance")}
+                      </Bouton>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
       {erreur ? (
         <p className="mp-champ__erreur" id={idErreur}>

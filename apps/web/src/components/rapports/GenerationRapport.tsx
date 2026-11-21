@@ -225,8 +225,8 @@ export function GenerationRapport({
                   variante="secondaire"
                   onClick={() => void generer(echec.format)}
                   aria-label={t(
-                    `Réessayer la génération au format ${formatRapport(echec.format).court}`,
-                    `Retry generating in ${formatRapport(echec.format).court} format`,
+                    `Réessayer la génération au format ${formatRapport(echec.format, "fr").court}`,
+                    `Retry generating in ${formatRapport(echec.format, "en").court} format`,
                   )}
                 >
                   {t("Réessayer", "Try again")}

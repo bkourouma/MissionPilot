@@ -94,7 +94,7 @@ export default async function PageDetailTranscription({
       </Link>
       <h2 className="mp-section__titre">
         {tr(
-          `Transcription du ${dateHeureCourte(t.cree_le)} `,
+          `Transcription du ${dateHeureCourte(t.cree_le, "fr")} `,
           `Transcription of ${dateHeureCourte(t.cree_le, "en")} `,
         )}
         <BadgeStatut tonalite={tonaliteStatutTranscription(t.statut)}>
@@ -252,7 +252,7 @@ export default async function PageDetailTranscription({
               <ul className="mp-canaux__historique">
                 {versionsRecentesDabord(t.versions).map((v) => (
                   <li key={v.numero}>
-                    <strong>{`Version ${v.numero}`}</strong>
+                    <strong>{`${tr("Version", "Version")} ${v.numero}`}</strong>
                     <span>{libelleOrigineVersion(v.origine, langue)}</span>
                     <span className="mp-texte-doux">{dateHeureCourte(v.cree_le, langue)}</span>
                   </li>

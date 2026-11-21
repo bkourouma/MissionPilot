@@ -27,6 +27,7 @@ import {
   MENTION_CONFIDENTIALITE,
   MENTION_CONFIDENTIALITE_EN,
   messageErreurCopilote,
+  peutDecider,
   questionAvant,
   saisieApresEnvoi,
   TEXTE_PROPOSITION_EXPIREE,
@@ -43,6 +44,7 @@ import {
 } from "../../lib/copilote-session";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { CarteAction } from "./CarteAction";
@@ -187,6 +189,13 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
     champ.current?.focus();
   };
 
+  // Une proposition d'action encore ouverte disparaîtrait avec le fil : on demande confirmation.
+  const propositionOuverte = fil.some(
+    (e) => e.auteur === "copilote" && e.etatAction !== null && peutDecider(e.etatAction),
+  );
+  const restant = LONGUEUR_MESSAGE_MAX - saisie.length;
+  const procheDeLaLimite = restant <= Math.ceil(LONGUEUR_MESSAGE_MAX * 0.1);
+
   const choisir = (texte: string) => {
     if (estSuggestionComplete(texte)) {
       void envoyer(texte);
@@ -261,16 +270,36 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
       </div>
       {fil.length > 0 ? (
         <div className="mp-copilote__outils">
-          <Bouton variante="secondaire" onClick={effacer} disabled={envoi}>
-            {t("Effacer la conversation", "Clear the conversation")}
-          </Bouton>
+          {propositionOuverte && !envoi ? (
+            <BoutonConfirmation
+              libelle={t("Effacer la conversation", "Clear the conversation")}
+              question={t(
+                "Une action proposée attend encore votre décision et disparaîtra avec la conversation. Effacer quand même ?",
+                "A proposed action is still awaiting your decision and will disappear with the conversation. Clear anyway?",
+              )}
+              libelleConfirmation={t("Oui, effacer", "Yes, clear")}
+              action={async () => {
+                effacer();
+              }}
+            />
+          ) : (
+            <Bouton variante="secondaire" onClick={effacer} disabled={envoi}>
+              {t("Effacer la conversation", "Clear the conversation")}
+            </Bouton>
+          )}
         </div>
       ) : null}
-      {envoi ? (
-        <p className="mp-copilote__attente" role="status">
-          {t("Le copilote prépare sa réponse…", "The copilot is preparing its answer…")}
-        </p>
-      ) : null}
+      {/* Région toujours présente : une région insérée avec son texte n'est pas toujours annoncée. */}
+      <p className="mp-copilote__attente" role="status">
+        {envoi ? (
+          <>
+            <span className="mp-copilote__points" aria-hidden="true" />
+            <span>
+              {t("Le copilote prépare sa réponse…", "The copilot is preparing its answer…")}
+            </span>
+          </>
+        ) : null}
+      </p>
 
       {suggestions.length > 0 ? (
         <section aria-label={t("Suggestions de questions", "Suggested questions")}>
@@ -303,7 +332,16 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
           autoComplete="off"
         />
         <div className="mp-copilote__pied-saisie">
-          <span className="mp-copilote__compteur">{libelleCompteur(saisie.length, langue)}</span>
+          <span
+            className={
+              procheDeLaLimite
+                ? "mp-copilote__compteur mp-copilote__compteur--limite"
+                : "mp-copilote__compteur"
+            }
+          >
+            {libelleCompteur(saisie.length, langue)}
+            {procheDeLaLimite ? t(` (reste ${restant})`, ` (${restant} left)`) : ""}
+          </span>
           <Bouton
             type="submit"
             chargement={envoi}
