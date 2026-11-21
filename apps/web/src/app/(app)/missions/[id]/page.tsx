@@ -205,22 +205,24 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
           ) : null
         }
       >
-        <p className="mp-texte-doux" style={{ marginBottom: "var(--mp-esp-4)" }}>
-          {t(
-            "Les documents de la mission (versions, validation) sont dans l'onglet ",
-            "The engagement's documents (versions, approval) are in the ",
-          )}
-          <Link href={`/missions/${m.id}/documents`}>{t("Documents", "Documents")}</Link>
-          {t(".", " tab.")}
-        </p>
-        <Commentaires
-          entiteType="mission"
-          entiteId={m.id}
-          utilisateurId={utilisateur.id}
-          associe={roles.includes("associe")}
-          niveauTitre={3}
-          nomElement={t(`la mission ${m.intitule}`, `engagement ${m.intitule}`)}
-        />
+        <div className="mp-pile">
+          <p className="mp-texte-doux">
+            {t(
+              "Les documents de la mission (versions, validation) sont dans l'onglet ",
+              "The engagement's documents (versions, approval) are in the ",
+            )}
+            <Link href={`/missions/${m.id}/documents`}>{t("Documents", "Documents")}</Link>
+            {t(".", " tab.")}
+          </p>
+          <Commentaires
+            entiteType="mission"
+            entiteId={m.id}
+            utilisateurId={utilisateur.id}
+            associe={roles.includes("associe")}
+            niveauTitre={3}
+            nomElement={t(`la mission ${m.intitule}`, `engagement ${m.intitule}`)}
+          />
+        </div>
       </Carte>
     </div>
   );

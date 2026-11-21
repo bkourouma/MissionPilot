@@ -135,12 +135,21 @@ export default async function PageDetailSignature({
             <Icone nom="oeil" taille={18} />
             <span>
               {t(
-                "Lire le document (la lecture est inscrite dans les preuves)",
-                "Read the document (the reading is recorded in the evidence)",
+                "Lire le document, nouvel onglet (la lecture est inscrite dans les preuves)",
+                "Read the document, new tab (the reading is recorded in the evidence)",
               )}
             </span>
           </a>{" "}
-          <a className="mp-lien-action" href={hrefDocumentSignature(demande.id)} download>
+          <a
+            className="mp-lien-action"
+            href={hrefDocumentSignature(demande.id)}
+            download
+            aria-label={t(
+              `Télécharger le document ${demande.document_nom}`,
+              `Download the document ${demande.document_nom}`,
+            )}
+          >
+            <Icone nom="telechargement" taille={18} />
             <span>{t("Télécharger", "Download")}</span>
           </a>
         </p>
@@ -157,7 +166,12 @@ export default async function PageDetailSignature({
           legende={t("Signataires de la demande", "Request signatories")}
           cleLigne={(s) => s.id}
           colonnes={[
-            { cle: "rang", entete: t("Rang", "Order"), rendu: (s) => String(s.rang) },
+            {
+              cle: "rang",
+              entete: t("Rang", "Order"),
+              alignement: "droite",
+              rendu: (s) => String(s.rang),
+            },
             { cle: "nom", entete: t("Nom", "Name"), rendu: (s) => s.nom },
             {
               cle: "partie",

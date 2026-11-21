@@ -32,6 +32,7 @@ import {
   type SaisieDimension,
   type SaisieLien,
 } from "../../lib/preuves-saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -147,36 +148,36 @@ export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps)
   const t = useT();
   const langue = useLangue();
   const { rafraichir } = useRafraichir();
-  const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  async function delier() {
-    setEnCours(true);
+  /** `false` ramène le bouton à son état initial après un échec ; le message reste affiché. */
+  async function delier(): Promise<boolean> {
     setErreur(null);
     try {
       await api.supprimer(cheminLienAssertion(assertionId, preuveId));
       rafraichir();
+      return true;
     } catch (e) {
       setErreur(messagePreuves(e, langue));
       if (etatPreuvesChange(e)) rafraichir();
-    } finally {
-      setEnCours(false);
+      return false;
     }
   }
 
+  const libelleLien = libelleSens(sens, langue).toLowerCase();
   return (
     <div className="mp-pile">
-      <Bouton
+      <BoutonConfirmation
         variante="discret"
-        chargement={enCours}
-        texteChargement={t("Retrait…", "Removing…")}
-        onClick={delier}
-      >
-        {t(
-          `Retirer le lien « ${libelleSens(sens).toLowerCase()} »`,
-          `Remove the "${libelleSens(sens, langue).toLowerCase()}" link`,
+        libelle={t(`Retirer le lien « ${libelleLien} »`, `Remove the "${libelleLien}" link`)}
+        question={t(
+          `Retirer le lien « ${libelleLien} » ? L'indice de l'assertion sera recalculé ; l'événement reste dans le journal du registre.`,
+          `Remove the "${libelleLien}" link? The assertion index will be recomputed; the event stays in the register log.`,
         )}
-      </Bouton>
+        libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+        texteChargement={t("Retrait…", "Removing…")}
+        action={delier}
+      />
       {erreur ? (
         <Alerte tonalite="danger" annonce="alert">
           <p>{erreur}</p>
@@ -350,10 +351,34 @@ export function BoutonActivationDimension({
 
   return (
     <div className="mp-pile">
-      <Bouton variante="discret" chargement={enCours} texteChargement="…" onClick={basculer}>
+      <Bouton
+        variante="discret"
+        chargement={enCours}
+        texteChargement={
+          dimension.actif
+            ? t("Désactivation…", "Deactivating…")
+            : t("Réactivation…", "Reactivating…")
+        }
+        aria-label={
+          dimension.actif
+            ? t(
+                `Désactiver la dimension ${dimension.libelle}`,
+                `Deactivate dimension ${dimension.libelle}`,
+              )
+            : t(
+                `Réactiver la dimension ${dimension.libelle}`,
+                `Reactivate dimension ${dimension.libelle}`,
+              )
+        }
+        onClick={basculer}
+      >
         {dimension.actif ? t("Désactiver", "Deactivate") : t("Réactiver", "Reactivate")}
       </Bouton>
-      {erreur ? <p className="mp-champ__erreur">{erreur}</p> : null}
+      {erreur ? (
+        <Alerte tonalite="danger" annonce="alert">
+          <p>{erreur}</p>
+        </Alerte>
+      ) : null}
     </div>
   );
 }

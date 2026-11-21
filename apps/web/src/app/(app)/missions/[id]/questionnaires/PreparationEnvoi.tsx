@@ -171,7 +171,10 @@ function FormulaireEnvoi({
   if (etat.phase === "erreur") {
     return (
       <div className="mp-pile">
-        <Alerte tonalite="danger" titre={t("Préparation impossible", "Preparation impossible")}>
+        <Alerte
+          tonalite="danger"
+          titre={t("Préparation impossible", "Could not prepare the sending")}
+        >
           <p>{etat.message}</p>
         </Alerte>
         <div className="mp-barre-actions">
@@ -262,7 +265,7 @@ function FormulaireEnvoi({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur={t("Préparation impossible", "Preparation impossible")}
+        titreErreur={t("Préparation impossible", "Could not prepare the sending")}
       />
       <p className="mp-indice mp-texte-doux mp-texte-petit">
         <Icone nom="info" taille={16} />

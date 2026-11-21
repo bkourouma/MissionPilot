@@ -116,6 +116,7 @@ export default async function PageTranscriptionsMission({
             {
               cle: "duree",
               entete: t("Durée", "Duration"),
+              alignement: "droite",
               rendu: (tr) => formaterDuree(tr.duree_audio_ms),
             },
             {

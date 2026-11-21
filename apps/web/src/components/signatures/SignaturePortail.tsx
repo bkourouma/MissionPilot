@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useFocusInitial } from "./useFocusInitial";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import type { AccuseSignatureApi } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -55,6 +56,7 @@ export function SignaturePortail({
   const langue = useLangue();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [accuse, setAccuse] = useState<AccuseSignatureApi | null>(null);
+  const [refus, setRefus] = useState<string | null>(null);
 
   return (
     <div className="mp-pile">
@@ -69,7 +71,13 @@ export function SignaturePortail({
             <Icone nom="oeil" taille={18} />
             <span>{t("Lire le document (nouvel onglet)", "Read the document (new tab)")}</span>
           </a>{" "}
-          <a className="mp-lien-action" href={hrefDocumentSignaturePortail(signatureId)} download>
+          <a
+            className="mp-lien-action"
+            href={hrefDocumentSignaturePortail(signatureId)}
+            download
+            aria-label={t("Télécharger le document à signer", "Download the document to sign")}
+          >
+            <Icone nom="telechargement" taille={18} />
             <span>{t("Télécharger", "Download")}</span>
           </a>
         </p>
@@ -97,6 +105,11 @@ export function SignaturePortail({
           <p>{avertissementSignatureSimulee(langue)}.</p>
         </Alerte>
       ) : null}
+      {refus ? (
+        <Alerte tonalite="succes" annonce="status">
+          <p>{refus}</p>
+        </Alerte>
+      ) : null}
       {peutSigner && !accuse ? (
         <>
           <div className="mp-canaux__actions-ligne">
@@ -119,7 +132,11 @@ export function SignaturePortail({
             <FormulaireSignaturePortail signatureId={signatureId} onAccuse={setAccuse} />
           ) : null}
           {panneau === "refuser" ? (
-            <FormulaireRefusPortail signatureId={signatureId} onFin={() => setPanneau(null)} />
+            <FormulaireRefusPortail
+              signatureId={signatureId}
+              onFin={() => setPanneau(null)}
+              onSucces={setRefus}
+            />
           ) : null}
         </>
       ) : null}
@@ -139,6 +156,7 @@ function FormulaireSignaturePortail({
   const { rafraichir } = useRafraichir();
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
   const f = useFormulaire<ChampConfirmation>();
+  useFocusInitial(f.refFormulaire);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -205,12 +223,15 @@ function FormulaireSignaturePortail({
 function FormulaireRefusPortail({
   signatureId,
   onFin,
+  onSucces,
 }: {
   signatureId: string;
   onFin: () => void;
+  onSucces: (message: string) => void;
 }) {
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
+  useFocusInitial(f.refFormulaire);
   const t = useT();
   const langue = useLangue();
 
@@ -223,9 +244,11 @@ function FormulaireRefusPortail({
           redirigerSi401: false,
         }),
       {
-        succes: t("Votre refus est enregistré.", "Your refusal has been recorded."),
         messageSpecifique: (e) => messageErreurSignaturePortail(e, langue),
-        apres: onFin,
+        apres: () => {
+          onSucces(t("Votre refus est enregistré.", "Your refusal has been recorded."));
+          onFin();
+        },
       },
     );
   }
@@ -238,7 +261,11 @@ function FormulaireRefusPortail({
       onSubmit={soumettre}
       aria-label={t("Refuser de signer", "Decline to sign")}
     >
-      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        refAlerte={f.refAlerte}
+        titreErreur={t("Refus impossible", "Could not decline")}
+      />
       <ZoneTexte
         libelle={t("Motif du refus", "Reason for the refusal")}
         required

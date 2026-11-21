@@ -3,6 +3,7 @@ import { obtenirLangue } from "../../../../../lib/i18n/serveur";
 import { creerTraduire, type Langue, type Traduire } from "@missionpilot/shared";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { classesBouton } from "../../../../../components/ui/Bouton";
+import { Calcule } from "../../../../../components/ui/Calcule";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { Icone } from "../../../../../components/ui/Icone";
@@ -150,10 +151,14 @@ export default async function PageBudget({
           ))}
 
           {budget.versions.length >= 2 ? (
-            <Carte titre={t("Comparer deux versions", "Compare two versions")}>
+            <Carte
+              titre={t("Comparer deux versions", "Compare two versions")}
+              actions={comparaison?.ok ? <Calcule /> : null}
+            >
               <div className="mp-pile">
                 <form
                   method="get"
+                  action={`/missions/${m.id}/budget#resultat-comparaison`}
                   className="mp-filtres"
                   aria-label={t(
                     "Choisir les versions à comparer",
@@ -181,6 +186,7 @@ export default async function PageBudget({
                     </button>
                   </div>
                 </form>
+                <div id="resultat-comparaison" className="mp-ancre-resultat" />
                 {comparaison ? (
                   comparaison.ok ? (
                     <ResultatComparaison
