@@ -94,6 +94,12 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
         />
         <fieldset className="mp-groupe">
           <legend className="mp-champ__libelle">{t("Comptes", "Accounts")}</legend>
+          <p className="mp-texte-doux">
+            {t(
+              "Numéro de compte utilisé dans chaque écriture exportée.",
+              "Account number used in each exported entry.",
+            )}
+          </p>
           <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {p.comptes.map((c) => (
               <Champ

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRafraichir } from "../../../components/formulaires/useRafraichir";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { DecisionSaisie } from "../../../components/hors-ligne/DecisionSaisie";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../../../components/temps/useSauvegardeFeuille";
 import { useAttenteRafraichissement } from "../../../components/formulaires/useAttenteRafraichissement";
 import { PreRemplissage } from "../../../components/temps/PreRemplissage";
+import { cibleGrille, pasDeTouche } from "../../../components/temps/navigationGrille";
 import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
 import { CaseACocher } from "../../../components/ui/CaseACocher";
@@ -45,6 +46,7 @@ import {
   construireCharge,
   formaterValeur,
   libelleGroupe,
+  lireCase,
   nomUnite,
   rangeeActivite,
   rangeesDepuisCles,
@@ -112,6 +114,9 @@ export function GrilleTemps(props: GrilleTempsProps) {
   });
   const [attente, marquerAttente] = useAttenteRafraichissement(feuille.statut);
   const refErreur = useRef<HTMLDivElement>(null);
+  const refTable = useRef<HTMLTableElement>(null);
+  /** Cases quittées au moins une fois : leur erreur de format s'affiche tout de suite, sans attendre l'enregistrement. */
+  const [quittees, setQuittees] = useState<ReadonlySet<string>>(new Set());
 
   const construire = useCallback(
     (i: Instantane) =>
@@ -268,6 +273,42 @@ export function GrilleTemps(props: GrilleTempsProps) {
   const weekendRempli = rangees.some((r) =>
     jours.some((d, i) => WEEKEND.has(i) && (valeurs[cleCase(r.cle, d)] ?? "").trim() !== ""),
   );
+  const colonnes = weekend || weekendRempli ? jours : visibles;
+  const indexLigne = new Map(rangees.map((r, i) => [r.cle, i]));
+
+  /** Flèches, Entrée : déplacement entre cases ; Tab garde son comportement natif. */
+  function surTouche(ev: KeyboardEvent<HTMLInputElement>, ligne: number, colonne: number) {
+    if (ev.nativeEvent.isComposing) return;
+    const el = ev.currentTarget;
+    const pas = pasDeTouche({
+      key: ev.key,
+      shiftKey: ev.shiftKey,
+      debutSelection: el.selectionStart ?? 0,
+      finSelection: el.selectionEnd ?? 0,
+      longueur: el.value.length,
+    });
+    if (!pas) return;
+    ev.preventDefault();
+    const table = refTable.current;
+    if (!table) return;
+    const cible = cibleGrille(
+      { ligne, colonne },
+      pas,
+      { lignes: rangees.length, colonnes: colonnes.length },
+      (p) =>
+        table.querySelector(`input[data-ligne="${p.ligne}"][data-col="${p.colonne}"]`) !== null,
+    );
+    if (!cible) return;
+    table
+      .querySelector<HTMLInputElement>(
+        `input[data-ligne="${cible.ligne}"][data-col="${cible.colonne}"]`,
+      )
+      ?.focus();
+  }
+
+  function quitter(cle: string) {
+    setQuittees((q) => (q.has(cle) ? q : new Set(q).add(cle)));
+  }
 
   return (
     <div className="mp-pile">
@@ -344,7 +385,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
         </p>
       ) : (
         <div className="mp-feuille">
-          <table className="mp-feuille__table">
+          <table className="mp-feuille__table" ref={refTable}>
             <caption className="mp-visuellement-cache">
               {t(
                 `Temps de la semaine, en ${nomUnite(unite)}`,
@@ -354,7 +395,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
             <thead>
               <tr>
                 <th scope="col">{t("Tâche ou activité", "Task or activity")}</th>
-                {(weekend || weekendRempli ? jours : visibles).map((d) => (
+                {colonnes.map((d) => (
                   <th scope="col" key={d} className="mp-feuille__jour">
                     <span aria-hidden="true">{libelleJourCourt(d, langue)}</span>
                     <span className="mp-visuellement-cache">{libelleJourLong(d, langue)}</span>
@@ -387,9 +428,14 @@ export function GrilleTemps(props: GrilleTempsProps) {
                         <span className="mp-texte-doux"> {t("(absence)", "(absence)")}</span>
                       ) : null}
                     </th>
-                    {(weekend || weekendRempli ? jours : visibles).map((d) => {
+                    {colonnes.map((d, col) => {
                       const cle = cleCase(r.cle, d);
-                      const erreur = s.erreursCases[cle];
+                      const ligne = indexLigne.get(r.cle) ?? 0;
+                      const locale = quittees.has(cle)
+                        ? lireCase(valeurs[cle] ?? "", unite, langue)
+                        : null;
+                      const erreur =
+                        s.erreursCases[cle] ?? (locale && !locale.ok ? locale.message : undefined);
                       const id = `case-${cle.replace(/[^a-z0-9]/gi, "")}`;
                       return (
                         <td
@@ -407,23 +453,47 @@ export function GrilleTemps(props: GrilleTempsProps) {
                                 enterKeyHint="next"
                                 autoComplete="off"
                                 maxLength={6}
+                                data-ligne={ligne}
+                                data-col={col}
                                 aria-label={t(
-                                  `${libelleJourLong(d, langue)}, ${r.libelle}, en ${nomUnite(unite)}`,
-                                  `${libelleJourLong(d, langue)}, ${r.libelle}, in ${nomUnite(unite, langue)}`,
+                                  `${r.libelle} (${libelleGroupe(r.groupe, langue)}), ${libelleJourLong(d, langue)}, en ${nomUnite(unite)}`,
+                                  `${r.libelle} (${libelleGroupe(r.groupe, langue)}), ${libelleJourLong(d, langue)}, in ${nomUnite(unite, langue)}`,
                                 )}
                                 aria-invalid={erreur ? true : undefined}
                                 aria-describedby={erreur ? `${id}-erreur` : undefined}
                                 value={valeurs[cle] ?? ""}
                                 onChange={(e) => changer(cle, e.target.value)}
+                                onKeyDown={(e) => surTouche(e, ligne, col)}
+                                onFocus={(e) => e.currentTarget.select()}
+                                onBlur={() => quitter(cle)}
                               />
                               {erreur ? (
                                 <span id={`${id}-erreur`} className="mp-feuille__erreur">
+                                  <Icone nom="attention" taille={14} />
                                   {erreur}
                                 </span>
                               ) : null}
                             </>
                           ) : (
-                            <span className="mp-feuille__valeur">{valeurs[cle] || "—"}</span>
+                            <span
+                              className={
+                                clos.has(d)
+                                  ? "mp-feuille__valeur mp-feuille__valeur--ferme"
+                                  : "mp-feuille__valeur"
+                              }
+                              title={
+                                clos.has(d) ? t("Période clôturée", "Closed period") : undefined
+                              }
+                            >
+                              {clos.has(d) ? (
+                                <Icone
+                                  nom="cadenas"
+                                  taille={14}
+                                  libelle={t("période clôturée", "closed period")}
+                                />
+                              ) : null}
+                              {valeurs[cle] || "—"}
+                            </span>
                           )}
                         </td>
                       );
@@ -438,7 +508,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
             <tfoot>
               <tr>
                 <th scope="row">{t("Total du jour", "Daily total")}</th>
-                {(weekend || weekendRempli ? jours : visibles).map((d) => (
+                {colonnes.map((d) => (
                   <td
                     key={d}
                     data-jour={libelleJourCourt(d, langue)}
@@ -456,6 +526,25 @@ export function GrilleTemps(props: GrilleTempsProps) {
         </div>
       )}
 
+      {modifiable && joursClotures.some((d) => jours.includes(d)) ? (
+        <p className="mp-texte-doux mp-texte-petit">
+          <Icone nom="cadenas" taille={14} />{" "}
+          {t(
+            "Les jours avec un cadenas sont clôturés : leur saisie est verrouillée.",
+            "Days with a padlock are closed: entry is locked.",
+          )}
+        </p>
+      ) : null}
+
+      {modifiable ? (
+        <p className="mp-texte-doux mp-texte-petit">
+          {t(
+            "Flèches ou Entrée pour passer d'une case à l'autre ; vos modifications s'enregistrent toutes seules.",
+            "Use the arrow keys or Enter to move between cells; your changes save automatically.",
+          )}
+        </p>
+      ) : null}
+
       {modifiable && ajoutables.length > 0 ? (
         <AjoutActivite activites={ajoutables} onAjouter={ajouterActivite} />
       ) : null}
@@ -472,6 +561,15 @@ export function GrilleTemps(props: GrilleTempsProps) {
               {s.memoireSeule ? ` ${messageMemoire(langue)}` : ""}
             </span>
           </p>
+          {s.etat === "en_attente" ? (
+            <Bouton
+              variante="discret"
+              icone="envoyer"
+              onClick={() => void s.enregistrerMaintenant()}
+            >
+              {t("Réessayer l'envoi", "Retry sending")}
+            </Bouton>
+          ) : null}
           <p className="mp-feuille__semaine">
             {t("Semaine :", "Week:")} <strong>{formaterValeur(totalSemaine, unite, langue)}</strong>
           </p>
@@ -490,10 +588,19 @@ export function GrilleTemps(props: GrilleTempsProps) {
             chargement={soumission.enCours || attente}
             texteChargement={t("Soumission…", "Submitting…")}
             disabled={totalSemaine === 0}
+            aria-describedby={totalSemaine === 0 ? "aide-soumettre" : undefined}
             onClick={soumettre}
           >
             {props.libelleSoumettre}
           </Bouton>
+          {totalSemaine === 0 ? (
+            <p id="aide-soumettre" className="mp-texte-doux mp-texte-petit mp-pleine-largeur">
+              {t(
+                "Saisissez au moins un temps pour pouvoir soumettre la feuille.",
+                "Enter at least one time to be able to submit the timesheet.",
+              )}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

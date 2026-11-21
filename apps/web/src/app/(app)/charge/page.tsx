@@ -105,6 +105,7 @@ export default async function PagePlanDeCharge({
             type="date"
             name="debut"
             defaultValue={debut}
+            aide={t("Premier jour de la période affichée.", "First day of the period shown.")}
           />
           <Select
             libelle={t("Durée", "Duration")}
@@ -119,6 +120,10 @@ export default async function PagePlanDeCharge({
             libelle={t("Équipe d'une mission en cours", "Team of an ongoing engagement")}
             name="equipe"
             invite={t("Tout le cabinet", "Whole firm")}
+            aide={t(
+              "Limite le plan aux membres de cette mission.",
+              "Limits the workload to the members of this engagement.",
+            )}
             options={optionsMissions}
             defaultValue={f.equipe}
           />
@@ -142,7 +147,7 @@ export default async function PagePlanDeCharge({
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="entonnoir" />
-            <span>{t("Afficher", "Show")}</span>
+            <span>{t("Appliquer les filtres", "Apply filters")}</span>
           </button>
           {filtre || f.debut || f.semaines !== 12 ? (
             <Link href="/charge" className={classesBouton("discret")}>
@@ -152,7 +157,10 @@ export default async function PagePlanDeCharge({
         </div>
       </form>
 
-      <nav className="mp-navigation-annee" aria-label={t("Changer de période", "Change period")}>
+      <nav
+        className="mp-navigation-annee mp-charge__navigation"
+        aria-label={t("Changer de période", "Change period")}
+      >
         <Link
           className="mp-pagination__lien"
           href={hrefPlan(f, { debut: ajouterJoursIso(debut, -7 * f.semaines) })}
@@ -160,6 +168,14 @@ export default async function PagePlanDeCharge({
           <Icone nom="chevronGauche" taille={18} />
           <span>{t("Période précédente", "Previous period")}</span>
         </Link>
+        {plan.ok ? (
+          <p className="mp-charge__periode" aria-live="polite">
+            {t(
+              `Du ${libelleDateCourte(plan.donnees.debut)} au ${libelleDateCourte(plan.donnees.fin)}`,
+              `${libelleDateCourte(plan.donnees.debut, langue)} to ${libelleDateCourte(plan.donnees.fin, langue)}`,
+            )}
+          </p>
+        ) : null}
         <Link
           className="mp-pagination__lien"
           href={hrefPlan(f, { debut: ajouterJoursIso(debut, 7 * f.semaines) })}
@@ -169,7 +185,7 @@ export default async function PagePlanDeCharge({
         </Link>
       </nav>
 
-      <Legende langue={langue} />
+      <Legende langue={langue} seuils={plan.ok ? plan.donnees.seuils : null} />
 
       {!plan.ok ? (
         <EtatErreur
@@ -191,6 +207,13 @@ export default async function PagePlanDeCharge({
               : t("Aucun collaborateur actif.", "No active team members.")
           }
           icone="personnes"
+          action={
+            filtre ? (
+              <Link href="/charge" className={classesBouton("secondaire")}>
+                {t("Réinitialiser les filtres", "Reset filters")}
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
         <>
@@ -253,19 +276,51 @@ export default async function PagePlanDeCharge({
   );
 }
 
-function Legende({ langue }: { langue: Langue }) {
+/** Légende : chaque état avec son icône, son texte et, quand on les connaît, son seuil de taux. */
+function Legende({ langue, seuils }: { langue: Langue; seuils: PlanDeCharge["seuils"] | null }) {
+  const en = langue === "en";
+  const regle = (e: keyof typeof ETAT_CHARGE): string | null => {
+    if (!seuils) return null;
+    if (e === "surcharge") {
+      return en
+        ? `strictly above ${seuils.surcharge_pct} %, or days assigned with no capacity`
+        : `au-delà de ${seuils.surcharge_pct} % (strictement), ou jours affectés sur une capacité nulle`;
+    }
+    if (e === "sous_occupation") {
+      return en
+        ? `strictly below ${seuils.sous_occupation_pct} %`
+        : `sous ${seuils.sous_occupation_pct} % (strictement)`;
+    }
+    if (e === "indisponible") {
+      return en ? "no capacity, nothing assigned" : "aucune capacité, rien d'affecté";
+    }
+    return en
+      ? `${seuils.sous_occupation_pct} % to ${seuils.surcharge_pct} %`
+      : `de ${seuils.sous_occupation_pct} % à ${seuils.surcharge_pct} %`;
+  };
   return (
-    <ul
-      className="mp-charge__legende"
-      aria-label={langue === "en" ? "Workload status legend" : "Légende des états de charge"}
-    >
-      {(Object.keys(ETAT_CHARGE) as (keyof typeof ETAT_CHARGE)[]).map((e) => (
-        <li key={e} className={`mp-charge__cellule mp-charge__cellule--${e}`}>
-          <Icone nom={ETAT_CHARGE[e].icone} taille={14} />
-          <span>{presentationEtatCharge(e, langue).libelle}</span>
-        </li>
-      ))}
-    </ul>
+    <section className="mp-charge__aide" aria-labelledby="titre-legende-charge">
+      <h2 id="titre-legende-charge" className="mp-charge__titre-legende">
+        {en ? "How to read the rate" : "Lire le taux d'occupation"}
+      </h2>
+      <p className="mp-texte-doux mp-texte-petit">
+        {en
+          ? "Rate = days assigned ÷ capacity of the week. Each cell shows the rate, the days and the status in words."
+          : "Taux = jours affectés ÷ capacité de la semaine. Chaque cellule indique le taux, les jours et l'état en toutes lettres."}
+      </p>
+      <ul className="mp-charge__legende">
+        {(Object.keys(ETAT_CHARGE) as (keyof typeof ETAT_CHARGE)[]).map((e) => {
+          const r = regle(e);
+          return (
+            <li key={e} className={`mp-charge__cellule mp-charge__cellule--${e}`}>
+              <Icone nom={ETAT_CHARGE[e].icone} taille={14} />
+              <span>{presentationEtatCharge(e, langue).libelle}</span>
+              {r ? <span className="mp-charge__seuil">{`(${r})`}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -369,7 +424,7 @@ function ListePlan({ plan, langue }: { plan: PlanDeCharge; langue: Langue }) {
                             ? `Week of ${libelleDateCourte(c.semaine, langue)}`
                             : `Semaine du ${libelleDateCourte(c.semaine)}`}
                         </strong>
-                        <span className="mp-texte-doux">
+                        <span className="mp-texte-doux mp-charge__chiffres">
                           {`${formaterJours(c.jours_affectes, langue)} ${en ? "of" : "sur"} ${formaterJours(c.capacite, langue)}${c.taux_occupation === null ? "" : ` · ${formaterPourcentage(c.taux_occupation, 0, langue)}`}`}
                         </span>
                       </span>

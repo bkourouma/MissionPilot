@@ -142,49 +142,51 @@ export default async function PageEncaissement({ params }: { params: Promise<{ i
         </dl>
       </Carte>
       <Carte titre={t("Imputations", "Allocations")}>
-        <Tableau
-          legende={t(
-            "Imputations de l'encaissement sur les factures",
-            "Allocations of the payment to invoices",
-          )}
-          lignes={e.imputations}
-          cleLigne={(i) => i.id}
-          messageVide={t(
-            "Aucune imputation : tout l'encaissement est une avance.",
-            "No allocation: the whole payment is an advance.",
-          )}
-          colonnes={[
-            {
-              cle: "facture",
-              entete: t("Facture", "Invoice"),
-              rendu: (i) => (
-                <Link href={`/facturation/${i.facture_id}`}>
-                  {i.facture_numero ?? t("Facture", "Invoice")}
-                </Link>
-              ),
-            },
-            {
-              cle: "date",
-              entete: t("Date", "Date"),
-              rendu: (i) => formaterDate(i.date_imputation, "UTC", langue),
-            },
-            {
-              cle: "origine",
-              entete: t("Origine", "Origin"),
-              rendu: (i) => libelleOrigineImputation(i.origine, langue),
-            },
-            {
-              cle: "montant",
-              entete: t("Montant", "Amount"),
-              alignement: "droite",
-              rendu: (i) => (
-                <span className="mp-montant">
-                  {formaterMontantMineur(i.montant, i.devise, langue)}
-                </span>
-              ),
-            },
-          ]}
-        />
+        <div className="mp-chiffres">
+          <Tableau
+            legende={t(
+              "Imputations de l'encaissement sur les factures",
+              "Allocations of the payment to invoices",
+            )}
+            lignes={e.imputations}
+            cleLigne={(i) => i.id}
+            messageVide={t(
+              "Aucune imputation : tout l'encaissement est une avance.",
+              "No allocation: the whole payment is an advance.",
+            )}
+            colonnes={[
+              {
+                cle: "facture",
+                entete: t("Facture", "Invoice"),
+                rendu: (i) => (
+                  <Link href={`/facturation/${i.facture_id}`}>
+                    {i.facture_numero ?? t("Facture", "Invoice")}
+                  </Link>
+                ),
+              },
+              {
+                cle: "date",
+                entete: t("Date", "Date"),
+                rendu: (i) => formaterDate(i.date_imputation, "UTC", langue),
+              },
+              {
+                cle: "origine",
+                entete: t("Origine", "Origin"),
+                rendu: (i) => libelleOrigineImputation(i.origine, langue),
+              },
+              {
+                cle: "montant",
+                entete: t("Montant", "Amount"),
+                alignement: "droite",
+                rendu: (i) => (
+                  <span className="mp-montant">
+                    {formaterMontantMineur(i.montant, i.devise, langue)}
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </div>
       </Carte>
       {siennes.length > 0 ? (
         <Carte titre={t("Contre-passation", "Reversal")}>

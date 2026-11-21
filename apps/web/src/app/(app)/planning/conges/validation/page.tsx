@@ -84,7 +84,7 @@ export default async function PageCongesAValider({
                   <div className="mp-pile">
                     <dl className="mp-liste-def mp-liste-def--compacte">
                       <div>
-                        <dt>Type</dt>
+                        <dt>{t("Type", "Type")}</dt>
                         <dd>{libType(a.type)}</dd>
                       </div>
                       <div>

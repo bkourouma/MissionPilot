@@ -151,58 +151,63 @@ export default async function PageEncaissements({
             </p>
           </EtatVide>
         ) : (
-          <Tableau
-            legende={t(
-              "Encaissements, du plus récent au plus ancien",
-              "Payments, from most recent to oldest",
-            )}
-            lignes={encaissements}
-            cleLigne={(e) => e.id}
-            colonnes={[
-              {
-                cle: "date",
-                entete: t("Date", "Date"),
-                rendu: (e) => (
-                  <Link href={`/facturation/encaissements/${e.id}`} className="mp-sans-coupure">
-                    {formaterDate(e.date_encaissement, "UTC", langue)}
-                  </Link>
-                ),
-              },
-              {
-                cle: "client",
-                entete: t("Client", "Client"),
-                rendu: (e) => e.client_raison_sociale,
-              },
-              {
-                cle: "moyen",
-                entete: t("Moyen", "Method"),
-                rendu: (e) => libelleMoyen(e, langue),
-              },
-              {
-                cle: "reference",
-                entete: t("Référence", "Reference"),
-                rendu: (e) => e.reference ?? "—",
-              },
-              {
-                cle: "montant",
-                entete: t("Montant", "Amount"),
-                alignement: "droite",
-                rendu: (e) => (
-                  <span className="mp-montant">
-                    {formaterMontantMineur(e.montant, e.devise, langue)}
-                  </span>
-                ),
-              },
-              {
-                cle: "etat",
-                entete: t("État", "Status"),
-                rendu: (e) => {
-                  const s = etatEncaissement(e, langue);
-                  return <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>;
+          <div className="mp-chiffres mp-tableau-cliquable">
+            <Tableau
+              legende={t(
+                "Encaissements, du plus récent au plus ancien",
+                "Payments, from most recent to oldest",
+              )}
+              lignes={encaissements}
+              cleLigne={(e) => e.id}
+              colonnes={[
+                {
+                  cle: "date",
+                  entete: t("Date", "Date"),
+                  rendu: (e) => (
+                    <Link
+                      href={`/facturation/encaissements/${e.id}`}
+                      className="mp-sans-coupure mp-lien-ligne"
+                    >
+                      {formaterDate(e.date_encaissement, "UTC", langue)}
+                    </Link>
+                  ),
                 },
-              },
-            ]}
-          />
+                {
+                  cle: "client",
+                  entete: t("Client", "Client"),
+                  rendu: (e) => e.client_raison_sociale,
+                },
+                {
+                  cle: "moyen",
+                  entete: t("Moyen", "Method"),
+                  rendu: (e) => libelleMoyen(e, langue),
+                },
+                {
+                  cle: "reference",
+                  entete: t("Référence", "Reference"),
+                  rendu: (e) => e.reference ?? "—",
+                },
+                {
+                  cle: "montant",
+                  entete: t("Montant", "Amount"),
+                  alignement: "droite",
+                  rendu: (e) => (
+                    <span className="mp-montant">
+                      {formaterMontantMineur(e.montant, e.devise, langue)}
+                    </span>
+                  ),
+                },
+                {
+                  cle: "etat",
+                  entete: t("État", "Status"),
+                  rendu: (e) => {
+                    const s = etatEncaissement(e, langue);
+                    return <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>;
+                  },
+                },
+              ]}
+            />
+          </div>
         )}
         {r.ok ? (
           <PaginationCurseur

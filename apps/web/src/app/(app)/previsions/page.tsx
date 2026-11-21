@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
 import { TableauxPrevisions } from "../../../components/previsions/TableauxPrevisions";
 import { Alerte } from "../../../components/ui/Alerte";
+import { Calcule } from "../../../components/ui/Calcule";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../components/ui/EtatListe";
@@ -66,6 +67,7 @@ async function Contenu({ donnees: d }: { donnees: ReponsePrevisions }) {
               )
             : t("Horizon", "Horizon")
         }
+        actions={<Calcule />}
       >
         <ul className="mp-totaux">
           <li className="mp-totaux__element">

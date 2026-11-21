@@ -177,6 +177,8 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
               `One delay per level, from 1 to 3, strictly increasing (e.g. ${DELAIS_DEPART_TEXTE}). Levels: ${[1, 2, 3].map((n) => libelleNiveau(n, langue)).join(", ")}.`,
             )}
             required
+            autoComplete="off"
+            placeholder={DELAIS_DEPART_TEXTE}
             value={s.delais}
             onChange={(e) => setS((x) => ({ ...x, delais: e.target.value }))}
             erreur={form.erreurs.delais}
@@ -195,6 +197,10 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
           />
           <CaseACocher
             libelle={t("Délais validés par le cabinet", "Delays approved by the firm")}
+            aide={t(
+              "À cocher une fois les délais ci-dessus approuvés par l'associé ou le responsable financier.",
+              "Tick once the delays above have been approved by the partner or the finance manager.",
+            )}
             checked={s.valeurs_validees}
             onChange={(e) => setS((x) => ({ ...x, valeurs_validees: e.target.checked }))}
           />
@@ -204,7 +210,7 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
               chargement={form.enCours || attente}
               texteChargement={t("Enregistrement…", "Saving…")}
             >
-              {t("Enregistrer", "Save")}
+              {t("Enregistrer les paramètres", "Save settings")}
             </Bouton>
           </div>
         </form>
