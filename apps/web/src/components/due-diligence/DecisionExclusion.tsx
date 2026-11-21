@@ -27,8 +27,10 @@ export function DecisionExclusion({ filtrageId, regleCode, libelleRegle }: Decis
   const L = libellesDd(langue);
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
+  const [decisionEnCours, setDecisionEnCours] = useState<"confirmee" | "ecartee" | null>(null);
 
   async function decider(decision: "confirmee" | "ecartee") {
+    setDecisionEnCours(decision);
     await f.envoyer(
       validerDecisionExclusion(regleCode, decision, motif, langue),
       (charge) => api.post(cheminDecisionsFiltrage(filtrageId), charge),
@@ -41,6 +43,7 @@ export function DecisionExclusion({ filtrageId, regleCode, libelleRegle }: Decis
         apres: () => setMotif(""),
       },
     );
+    setDecisionEnCours(null);
   }
 
   return (
@@ -67,10 +70,22 @@ export function DecisionExclusion({ filtrageId, regleCode, libelleRegle }: Decis
         )}
       />
       <div className="mp-barre-actions">
-        <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("confirmee")}>
+        <Bouton
+          variante="danger"
+          disabled={f.enCours}
+          chargement={decisionEnCours === "confirmee"}
+          texteChargement={t("Enregistrement…", "Saving…")}
+          onClick={() => void decider("confirmee")}
+        >
           {L.DECISION_EXCLUSION.confirmee}
         </Bouton>
-        <Bouton variante="secondaire" disabled={f.enCours} onClick={() => void decider("ecartee")}>
+        <Bouton
+          variante="secondaire"
+          disabled={f.enCours}
+          chargement={decisionEnCours === "ecartee"}
+          texteChargement={t("Enregistrement…", "Saving…")}
+          onClick={() => void decider("ecartee")}
+        >
           {t("Faux positif écarté", "False positive dismissed")}
         </Bouton>
       </div>

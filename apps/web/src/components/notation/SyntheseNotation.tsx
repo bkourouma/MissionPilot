@@ -16,6 +16,7 @@ import {
 } from "../../lib/notation";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { Calcule } from "../ui/Calcule";
 import { BadgeClasse } from "./BadgeClasse";
 
 export interface SyntheseNotationProps {
@@ -56,6 +57,7 @@ export async function SyntheseNotation({
           )}
         </p>
         <BadgeClasse classe={s.notable ? s.classe : null} grand />
+        <Calcule />
         <BadgeStatut tonalite={tonaliteStatutVersion(vue.statut)}>
           {libelleStatutVersion(vue.statut, langue)}
         </BadgeStatut>

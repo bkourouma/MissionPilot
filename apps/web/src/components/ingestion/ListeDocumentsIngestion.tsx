@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import "./ingestion.css";
+import { Alerte } from "../ui/Alerte";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
 import { ErreurApi } from "../../lib/api";
 import { formaterDateHeure } from "../../lib/format";
@@ -131,10 +133,9 @@ export function ListeDocumentsIngestion({
       rendu: (d) => (
         <>
           {rendreLien(hrefDocument(d), d.nom)}
-          <br />
-          <small>
+          <span className="mp-ing-sous-ligne">
             {d.format === "pdf" ? "PDF" : "Excel"} · {formaterTaille(d.taille, langue)}
-          </small>
+          </span>
         </>
       ),
     },
@@ -159,10 +160,7 @@ export function ListeDocumentsIngestion({
               ? (erreurDocument(d, langue) ?? "—")
               : libelleResultat(d.resultat, langue)}
             {lien ? (
-              <>
-                <br />
-                {rendreLien(lien.href, lien.libelle)}
-              </>
+              <span className="mp-ing-sous-ligne">{rendreLien(lien.href, lien.libelle)}</span>
             ) : null}
           </>
         );
@@ -187,7 +185,11 @@ export function ListeDocumentsIngestion({
       <p className="mp-visuellement-cache" role="status" aria-live="polite">
         {annonce}
       </p>
-      {echec ? <p role="alert">{echec}</p> : null}
+      {echec ? (
+        <Alerte tonalite="attention" annonce="alert">
+          <p>{echec}</p>
+        </Alerte>
+      ) : null}
       <Tableau
         legende={legende ?? t("Documents importés", "Imported documents")}
         lignes={documents}

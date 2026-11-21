@@ -14,6 +14,8 @@ import {
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { Calcule } from "../ui/Calcule";
+import "./due-diligence-lecture.css";
 
 const ETAGES: Record<string, string> = {
   marche_total: "Marché total",
@@ -165,10 +167,11 @@ export function ResultatMarche({
         </div>
       ) : null}
       <div className="mp-dd-pile">
-        <p className="mp-dd-element__titre">
+        <p className="mp-dd-element__titre mp-dd-titre-calcule">
           {resultat.ajuste
             ? t("Résultat après ajustements d'expert", "Result after expert adjustments")
             : t("Résultat", "Result")}
+          <Calcule />
         </p>
         <FourchetteMarche
           fourchette={resultat.resultat}
@@ -199,10 +202,15 @@ export function ResultatMarche({
           ))}
         </ul>
       ) : null}
-      <div className="mp-dd-pile">
-        <p className="mp-dd-element__titre">{t("Sensibilité", "Sensitivity")}</p>
-        <TornadoSensibilite sensibilite={resultat.sensibilite} devise={devise} />
-      </div>
+      {resultat.sensibilite.length > 0 ? (
+        <div className="mp-dd-pile">
+          <p className="mp-dd-element__titre mp-dd-titre-calcule">
+            {t("Sensibilité", "Sensitivity")}
+            <Calcule />
+          </p>
+          <TornadoSensibilite sensibilite={resultat.sensibilite} devise={devise} />
+        </div>
+      ) : null}
       <CouvertureMarche couverture={resultat.couverture} />
     </div>
   );

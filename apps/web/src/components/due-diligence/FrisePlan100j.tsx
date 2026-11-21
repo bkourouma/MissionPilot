@@ -9,6 +9,7 @@ import {
   type PhasePlan,
 } from "../../lib/due-diligence";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import "./due-diligence-lecture.css";
 import { FormulaireAction, type ChoixAction } from "./FormulaireAction";
 
 const PHASES: readonly PhasePlan[] = ["jours_0_30", "jours_31_60", "jours_61_100"];
@@ -70,25 +71,30 @@ export async function FrisePlan100j({
                         <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
                       ) : null}
                     </span>
-                    <p className="mp-texte-petit">
-                      {avecDates && a.date_debut && a.date_fin
-                        ? t(
-                            `Du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)} (${plageJours(a).toLowerCase()})`,
-                            `From ${formaterDate(a.date_debut, "UTC", langue)} to ${formaterDate(a.date_fin, "UTC", langue)} (${plageJours(a).toLowerCase()})`,
-                          )
-                        : plageJours(a)}
-                    </p>
                     {a.description ? (
                       <p className="mp-dd-texte mp-texte-doux">{a.description}</p>
                     ) : null}
-                    <p className="mp-texte-petit">
-                      {t(
-                        `Responsable : ${a.responsable ? (a.responsable.nom ?? "utilisateur supprimé") : "non désigné"}`,
-                        `Owner: ${a.responsable ? (a.responsable.nom ?? "deleted user") : "not assigned"}`,
-                      )}
-                    </p>
-                    <p className="mp-texte-petit">{`${t("Initiative du plan", "Plan initiative")} : ${libelleLienPlan(a.plan_element, langue)}`}</p>
-                    <p className="mp-texte-petit">{`${t("Indicateur", "KPI")} : ${libelleLienPlan(a.kpi, langue)}`}</p>
+                    <dl className="mp-dd-faits">
+                      <dt>{t("Période", "Period")}</dt>
+                      <dd>
+                        {avecDates && a.date_debut && a.date_fin
+                          ? t(
+                              `Du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)} (${plageJours(a).toLowerCase()})`,
+                              `From ${formaterDate(a.date_debut, "UTC", langue)} to ${formaterDate(a.date_fin, "UTC", langue)} (${plageJours(a).toLowerCase()})`,
+                            )
+                          : plageJours(a)}
+                      </dd>
+                      <dt>{t("Responsable", "Owner")}</dt>
+                      <dd>
+                        {a.responsable
+                          ? (a.responsable.nom ?? t("utilisateur supprimé", "deleted user"))
+                          : t("non désigné", "not assigned")}
+                      </dd>
+                      <dt>{t("Initiative du plan", "Plan initiative")}</dt>
+                      <dd>{libelleLienPlan(a.plan_element, langue)}</dd>
+                      <dt>{t("Indicateur", "KPI")}</dt>
+                      <dd>{libelleLienPlan(a.kpi, langue)}</dd>
+                    </dl>
                     {edition ? (
                       <details className="mp-dd-details">
                         <summary>

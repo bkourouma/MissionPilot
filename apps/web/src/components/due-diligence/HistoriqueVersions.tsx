@@ -16,8 +16,11 @@ import {
 import { formaterDateHeure } from "../../lib/format";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
+import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
+import { EtatVide } from "../ui/EtatListe";
 import { FormulaireListeExclusion } from "./FormulaireListeExclusion";
+import "./due-diligence-lecture.css";
 
 export interface HistoriqueVersionsProps {
   type: "signal" | "liste";
@@ -81,7 +84,7 @@ export function HistoriqueVersions({ type, id, secteurs, pays }: HistoriqueVersi
           </Bouton>
         </div>
       ) : versions.length === 0 ? (
-        <p className="mp-texte-doux">{t("Aucune version enregistrée.", "No version saved.")}</p>
+        <EtatVide icone="historique" titre={t("Aucune version enregistrée", "No version saved")} />
       ) : (
         <ol
           className="mp-dd-liste"
@@ -102,12 +105,29 @@ export function HistoriqueVersions({ type, id, secteurs, pays }: HistoriqueVersi
                   <p className="mp-dd-texte">{`${t("Motif", "Reason")} : ${v.motif}`}</p>
                 ) : null}
                 {"gravite_indicative" in v ? (
-                  <p className="mp-texte-petit">
-                    {t(
-                      `${v.libelle} · ${L.FAMILLE[v.famille]} · gravité ${L.NIVEAU_RISQUE[v.gravite_indicative].toLowerCase()} · secteur : ${libelleDe(secteurs, v.secteur_code, tous, indisponible)} · pays : ${libelleDe(pays, v.pays_code, tous, indisponible)} · ${v.actif ? "actif" : "inactif"}`,
-                      `${v.libelle} · ${L.FAMILLE[v.famille]} · severity ${L.NIVEAU_RISQUE[v.gravite_indicative].toLowerCase()} · sector: ${libelleDe(secteurs, v.secteur_code, tous, indisponible)} · country: ${libelleDe(pays, v.pays_code, tous, indisponible)} · ${v.actif ? "active" : "inactive"}`,
-                    )}
-                  </p>
+                  <>
+                    <p className="mp-dd-texte">{v.libelle}</p>
+                    <span className="mp-dd-meta">
+                      <BadgeStatut tonalite="neutre" sansIcone>
+                        {L.FAMILLE[v.famille]}
+                      </BadgeStatut>
+                      <BadgeStatut tonalite="neutre" sansIcone>
+                        {t(
+                          `Gravité : ${L.NIVEAU_RISQUE[v.gravite_indicative].toLowerCase()}`,
+                          `Severity: ${L.NIVEAU_RISQUE[v.gravite_indicative].toLowerCase()}`,
+                        )}
+                      </BadgeStatut>
+                      <BadgeStatut tonalite={v.actif ? "succes" : "neutre"}>
+                        {v.actif ? t("Actif", "Active") : t("Inactif", "Inactive")}
+                      </BadgeStatut>
+                    </span>
+                    <dl className="mp-dd-faits">
+                      <dt>{t("Secteur", "Sector")}</dt>
+                      <dd>{libelleDe(secteurs, v.secteur_code, tous, indisponible)}</dd>
+                      <dt>{t("Pays", "Country")}</dt>
+                      <dd>{libelleDe(pays, v.pays_code, tous, indisponible)}</dd>
+                    </dl>
+                  </>
                 ) : (
                   <p className="mp-texte-petit">
                     {t(

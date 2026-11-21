@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { messageDd } from "../../lib/due-diligence";
 import { validerDecision } from "../../lib/due-diligence-saisie";
@@ -38,6 +38,12 @@ export function ValidationDecision({
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
   const [rejet, setRejet] = useState(false);
+  const refMotif = useRef<HTMLTextAreaElement>(null);
+
+  // Le motif s'ouvre sous le bouton « Rejeter » : le curseur s'y place pour écrire sans chercher.
+  useEffect(() => {
+    if (rejet) refMotif.current?.focus();
+  }, [rejet]);
 
   async function decider(decision: "valide" | "rejete") {
     await f.envoyer(
@@ -64,6 +70,7 @@ export function ValidationDecision({
       />
       {rejet ? (
         <ZoneTexte
+          ref={refMotif}
           libelle={t(`Motif du rejet de ${objet}`, `Reason for rejecting ${objet}`)}
           required
           rows={2}
@@ -79,7 +86,12 @@ export function ValidationDecision({
       <div className="mp-barre-actions">
         {rejet ? (
           <>
-            <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("rejete")}>
+            <Bouton
+              variante="danger"
+              chargement={f.enCours}
+              texteChargement={t("Enregistrement…", "Saving…")}
+              onClick={() => void decider("rejete")}
+            >
               {t("Confirmer le rejet", "Confirm rejection")}
             </Bouton>
             <Bouton variante="discret" onClick={() => setRejet(false)}>

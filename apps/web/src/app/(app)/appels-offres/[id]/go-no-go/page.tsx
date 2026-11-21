@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import "../../../../../components/appels-offres/appels-offres.css";
+import { NavigationFicheAo } from "../../../../../components/appels-offres/NavigationFicheAo";
 import {
   FormulaireDecisionAo,
   FormulaireEvaluationAo,
@@ -91,6 +92,7 @@ export default async function PageGoNoGo({ params }: { params: Promise<{ id: str
           </BadgeStatut>
         }
       />
+      <NavigationFicheAo id={f.id} />
 
       {derniere ? (
         <Carte

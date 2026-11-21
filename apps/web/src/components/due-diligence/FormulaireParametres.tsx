@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   PARAMETRES_DIMENSIONNEMENT,
   type Langue,
@@ -115,6 +115,21 @@ export function FormulaireParametres({
   const [apercu, setApercu] = useState<ResultatDimensionnement | null>(null);
   const [erreurApercu, setErreurApercu] = useState<string | null>(null);
   const [calcul, setCalcul] = useState(false);
+  const refListe = useRef<HTMLFieldSetElement>(null);
+  const refAjout = useRef<HTMLButtonElement>(null);
+  const focusApres = useRef<number | "ajout" | null>(null);
+
+  // Focus au bon endroit : sur le premier champ de l'élément ajouté, ou sur « Ajouter » après un retrait.
+  useEffect(() => {
+    const cible = focusApres.current;
+    if (cible === null) return;
+    focusApres.current = null;
+    if (cible === "ajout") refAjout.current?.focus();
+    else {
+      const elements = refListe.current?.querySelectorAll<HTMLElement>(".mp-ajustement");
+      elements?.item(cible)?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+    }
+  }, [s.ajustements.length]);
 
   const optionsSource = useMemo(
     () => [
@@ -340,7 +355,7 @@ export function FormulaireParametres({
         );
       })}
 
-      <fieldset className="mp-groupe">
+      <fieldset className="mp-groupe" ref={refListe}>
         <legend className="mp-champ__libelle">
           {t("Ajustements d'expert (facultatifs)", "Expert adjustments (optional)")}
         </legend>
@@ -379,9 +394,10 @@ export function FormulaireParametres({
             />
             <Bouton
               variante="discret"
-              onClick={() =>
-                setS((x) => ({ ...x, ajustements: x.ajustements.filter((_, j) => j !== i) }))
-              }
+              onClick={() => {
+                focusApres.current = "ajout";
+                setS((x) => ({ ...x, ajustements: x.ajustements.filter((_, j) => j !== i) }));
+              }}
               aria-label={t(`Retirer l'ajustement ${i + 1}`, `Remove adjustment ${i + 1}`)}
             >
               {t("Retirer", "Remove")}
@@ -391,14 +407,16 @@ export function FormulaireParametres({
         {s.ajustements.length < AJUSTEMENTS_MAX ? (
           <div>
             <Bouton
+              ref={refAjout}
               variante="secondaire"
               icone="plus"
-              onClick={() =>
+              onClick={() => {
+                focusApres.current = s.ajustements.length;
                 setS((x) => ({
                   ...x,
                   ajustements: [...x.ajustements, { libelle: "", facteur: "", motif: "" }],
-                }))
-              }
+                }));
+              }}
             >
               {t("Ajouter un ajustement", "Add an adjustment")}
             </Bouton>

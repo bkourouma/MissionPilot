@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import "../../../../../components/appels-offres/appels-offres.css";
+import { NavigationFicheAo } from "../../../../../components/appels-offres/NavigationFicheAo";
 import { ActionsEtapeAo } from "../../../../../components/appels-offres/ActionsAo";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
@@ -99,6 +100,7 @@ export default async function PageRetroplanning({ params }: { params: Promise<{ 
           </BadgeStatut>
         }
       />
+      <NavigationFicheAo id={f.id} />
 
       {alertes.length > 0 ? (
         <Carte titre={t("Alertes", "Alerts")}>

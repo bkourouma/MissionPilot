@@ -13,6 +13,7 @@ import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
+import { EtatVide } from "../ui/EtatListe";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
 import { usePartageInvestisseur } from "./usePartageInvestisseur";
 
@@ -32,12 +33,14 @@ export function PartageInvestisseurComptes({
 
   if (comptes.length === 0) {
     return (
-      <p className="mp-texte-doux">
-        {t(
-          "Aucun compte investisseur n'existe pour le client de ce dossier. Invitez d'abord l'investisseur dans l'espace client (rôle « Investisseur »).",
-          "No investor account exists for this file's client. First invite the investor in the client space (“Investor” role).",
-        )}
-      </p>
+      <EtatVide icone="personnes" titre={t("Aucun compte investisseur", "No investor account")}>
+        <p>
+          {t(
+            "Aucun compte investisseur n'existe pour le client de ce dossier. Invitez d'abord l'investisseur dans l'espace client (rôle « Investisseur »).",
+            "No investor account exists for this file's client. First invite the investor in the client space (“Investor” role).",
+          )}
+        </p>
+      </EtatVide>
     );
   }
 

@@ -19,6 +19,7 @@ import {
 } from "../../lib/due-diligence";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { EtatVide } from "../ui/EtatListe";
 import { BadgeLecture, BadgeVerdict } from "./BadgesDd";
 
 export interface ArbreHypothesesProps {
@@ -145,6 +146,19 @@ export function ArbreHypotheses({
     } else {
       setReplies((r) => appliquerRepli(r, action));
     }
+  }
+
+  if (arbre.length === 0) {
+    return (
+      <EtatVide titre={t("Aucune hypothèse", "No hypothesis")}>
+        <p>
+          {t(
+            "Ajoutez une première hypothèse pour bâtir l'arbre.",
+            "Add a first hypothesis to build the tree.",
+          )}
+        </p>
+      </EtatVide>
+    );
   }
 
   return (

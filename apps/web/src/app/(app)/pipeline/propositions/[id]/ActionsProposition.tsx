@@ -130,7 +130,8 @@ export function ActionsProposition({
               <Bouton
                 variante="secondaire"
                 icone="copie"
-                disabled={f.enCours}
+                chargement={f.enCours}
+                texteChargement={t("Création…", "Creating…")}
                 onClick={() =>
                   f.envoyer(
                     { ok: true, charge: null },

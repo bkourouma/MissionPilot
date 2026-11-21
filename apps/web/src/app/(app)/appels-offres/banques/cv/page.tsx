@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FormulaireCv } from "../../../../../components/banque-ao/FormulairesCv";
 import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
+import { Champ } from "../../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
@@ -53,23 +54,36 @@ export default async function PageCv({ searchParams }: { searchParams: Parametre
           "Structured, dated CVs of the firm's experts and external experts. Years of experience are computed (distinct months, full years); the check against a tender's requirements is deterministic.",
         )}
       />
-      <form className="mp-formulaire mp-grille-champs" method="get">
-        <label className="mp-champ">
-          <span className="mp-champ__libelle">{t("Nom ou titre", "Name or title")}</span>
-          <input className="mp-champ__controle" name="q" defaultValue={filtres.q} />
-        </label>
-        <label className="mp-champ">
-          <span className="mp-champ__libelle">{t("Secteur", "Sector")}</span>
-          <input className="mp-champ__controle" name="secteur" defaultValue={filtres.secteur} />
-        </label>
-        <label className="mp-champ">
-          <span className="mp-champ__libelle">{t("Langue", "Language")}</span>
-          <input className="mp-champ__controle" name="langue" defaultValue={filtres.langue} />
-        </label>
+      <form className="mp-filtres" method="get" aria-label={t("Filtrer les CV", "Filter CVs")}>
+        <div className="mp-grille-champs mp-grille-champs--filtres">
+          <Champ
+            libelle={t("Nom ou titre", "Name or title")}
+            name="q"
+            defaultValue={filtres.q}
+            maxLength={100}
+          />
+          <Champ
+            libelle={t("Secteur", "Sector")}
+            name="secteur"
+            defaultValue={filtres.secteur}
+            maxLength={100}
+          />
+          <Champ
+            libelle={t("Langue", "Language")}
+            name="langue"
+            defaultValue={filtres.langue}
+            maxLength={100}
+          />
+        </div>
         <div className="mp-actions-formulaire">
           <button className={classesBouton("secondaire")} type="submit">
             {t("Rechercher", "Search")}
           </button>
+          {filtres.q || filtres.secteur || filtres.langue ? (
+            <Link href={`${RACINE_BANQUES}/cv`} className={classesBouton("discret")}>
+              {t("Réinitialiser", "Reset")}
+            </Link>
+          ) : null}
         </div>
       </form>
       {!r.ok ? (
