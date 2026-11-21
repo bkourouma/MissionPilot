@@ -13,6 +13,7 @@ import {
   type ChampAdhesion,
 } from "../../lib/observatoire";
 import { messageVersement, nombreVerse } from "../../lib/observatoire-versement";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -100,9 +101,9 @@ export function FormulaireRetraitAdhesion() {
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
 
-  async function soumettre(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    await f.envoyer(lireRetrait({ motif }, langue), (c) => api.post(CHEMIN_RETRAIT_ADHESION, c), {
+  // Action sensible : lancée seulement après la confirmation en deux temps (BoutonConfirmation).
+  function retirer() {
+    return f.envoyer(lireRetrait({ motif }, langue), (c) => api.post(CHEMIN_RETRAIT_ADHESION, c), {
       messageSpecifique: (err) => messageObservatoire(err, langue),
       succes: t(
         "Votre cabinet s'est retiré de l'observatoire.",
@@ -112,7 +113,12 @@ export function FormulaireRetraitAdhesion() {
   }
 
   return (
-    <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
+    <form
+      ref={f.refFormulaire}
+      className="mp-formulaire"
+      noValidate
+      onSubmit={(e: FormEvent<HTMLFormElement>) => e.preventDefault()}
+    >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
@@ -134,14 +140,20 @@ export function FormulaireRetraitAdhesion() {
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton
-          type="submit"
-          variante="danger"
-          chargement={f.enCours}
+        <BoutonConfirmation
+          variante="secondaire"
+          libelle={t(
+            "Retirer mon cabinet de l'observatoire",
+            "Withdraw my firm from the observatory",
+          )}
+          question={t(
+            "Retirer le cabinet de l'observatoire ? Les agrégats ne seront plus visibles et les contributions ne seront plus retenues.",
+            "Withdraw the firm from the observatory? The aggregates will no longer be visible and contributions will no longer be counted.",
+          )}
+          libelleConfirmation={t("Oui, retirer le cabinet", "Yes, withdraw the firm")}
           texteChargement={t("Retrait en cours…", "Withdrawing…")}
-        >
-          {t("Retirer mon cabinet de l'observatoire", "Withdraw my firm from the observatory")}
-        </Bouton>
+          action={() => retirer()}
+        />
       </div>
     </form>
   );
@@ -167,7 +179,7 @@ export function ActionsContributions({ aDesContributions }: { aDesContributions:
   }
 
   async function retirer() {
-    await fRetirer.envoyer(
+    return fRetirer.envoyer(
       { ok: true, charge: {} },
       (c) => api.post(`${CHEMIN_CONTRIBUTIONS}/retrait`, c),
       {
@@ -200,17 +212,27 @@ export function ActionsContributions({ aDesContributions }: { aDesContributions:
         >
           {t("Verser les données du cabinet", "Contribute the firm's data")}
         </Bouton>
-        <Bouton
-          type="button"
-          variante="secondaire"
-          onClick={retirer}
-          disabled={!aDesContributions}
-          chargement={fRetirer.enCours}
-          texteChargement={t("Retrait en cours…", "Withdrawing…")}
-        >
-          {t("Retirer mes contributions", "Withdraw my contributions")}
-        </Bouton>
+        {aDesContributions ? (
+          <BoutonConfirmation
+            libelle={t("Retirer mes contributions", "Withdraw my contributions")}
+            question={t(
+              "Retirer les contributions du cabinet ? Elles ne seront plus retenues dans les agrégats.",
+              "Withdraw the firm's contributions? They will no longer be counted in the aggregates.",
+            )}
+            libelleConfirmation={t("Oui, retirer", "Yes, withdraw")}
+            texteChargement={t("Retrait en cours…", "Withdrawing…")}
+            action={retirer}
+          />
+        ) : null}
       </div>
+      {aDesContributions ? null : (
+        <p className="mp-texte-petit mp-texte-doux">
+          {t(
+            "Aucune contribution à retirer : versez d'abord les données du cabinet.",
+            "No contribution to withdraw: contribute the firm's data first.",
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -5,7 +5,9 @@ import {
   TableauPortefeuille,
   TableauSynthesePage,
 } from "../../../../components/redressement/TableauPortefeuille";
+import Link from "next/link";
 import { Alerte } from "../../../../components/ui/Alerte";
+import { classesBouton } from "../../../../components/ui/Bouton";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { Select } from "../../../../components/ui/Select";
@@ -42,6 +44,7 @@ export default async function PagePortefeuilleTableau({
   const tx = textesTableau(langue);
   const filtres = lireFiltresTableau(await searchParams);
   const r = await chargerTableauPortefeuille(filtres);
+  const filtresActifs = Boolean(filtres.statut || filtres.secteur);
 
   return (
     <div className="mp-page">
@@ -82,9 +85,16 @@ export default async function PagePortefeuilleTableau({
               options={LIMITES_TABLEAU.map((n) => ({ valeur: String(n), libelle: String(n) }))}
             />
           </div>
-          <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            {t("Filtrer", "Filter")}
-          </button>
+          <div className="mp-actions-formulaire">
+            <button type="submit" className="mp-bouton mp-bouton--secondaire">
+              {t("Filtrer", "Filter")}
+            </button>
+            {filtresActifs ? (
+              <Link href={HREF_TABLEAU_PORTEFEUILLE} className={classesBouton("discret")}>
+                {t("Réinitialiser les filtres", "Reset filters")}
+              </Link>
+            ) : null}
+          </div>
         </form>
 
         {!r.ok ? (
@@ -97,7 +107,20 @@ export default async function PagePortefeuilleTableau({
             hrefReessayer={hrefTableauPortefeuille(filtres)}
           />
         ) : r.donnees.elements.length === 0 ? (
-          <EtatVide titre={t("Aucun dossier.", "No file.")} icone="attention">
+          <EtatVide
+            titre={t("Aucun dossier.", "No file.")}
+            icone="attention"
+            action={
+              <Link
+                href={filtresActifs ? HREF_TABLEAU_PORTEFEUILLE : "/redressement"}
+                className={classesBouton("secondaire")}
+              >
+                {filtresActifs
+                  ? t("Réinitialiser les filtres", "Reset filters")
+                  : t("Voir les dossiers", "View files")}
+              </Link>
+            }
+          >
             <p>{tx.portefeuilleVide}</p>
           </EtatVide>
         ) : (

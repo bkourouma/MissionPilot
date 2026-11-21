@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { classesBouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -29,6 +30,8 @@ export async function BarreRecherche({
   autres,
 }: BarreRechercheProps) {
   const t = await obtenirT();
+  // Filtres actifs : une recherche, ou un statut autre que le défaut (« actifs »).
+  const filtresActifs = Boolean(params.q) || params.statut !== "actifs";
   const optionsStatut = [
     { valeur: "actifs", libelle: t("Actifs", "Active") },
     { valeur: "archives", libelle: t("Archivés", "Archived") },
@@ -65,6 +68,11 @@ export async function BarreRecherche({
           <Icone nom="recherche" />
           <span>{t("Rechercher", "Search")}</span>
         </button>
+        {filtresActifs ? (
+          <Link href={action} className={classesBouton("discret")} prefetch={false}>
+            {t("Réinitialiser les filtres", "Reset filters")}
+          </Link>
+        ) : null}
       </div>
     </form>
   );

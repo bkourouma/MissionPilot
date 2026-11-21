@@ -182,7 +182,22 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
       ) : null}
 
       <Carte titre={t("Contrôle de cohérence", "Consistency check")}>
-        {!val.ok ? <p>{val.message}</p> : <ControleCoherence validation={val.donnees} />}
+        {!val.ok ? (
+          <Alerte
+            tonalite="danger"
+            titre={t(
+              "Le contrôle de cohérence n'a pas pu être chargé.",
+              "The consistency check could not be loaded.",
+            )}
+          >
+            <p>{val.message}</p>
+            <p>
+              <Link href={hrefVersion(id)}>{t("Réessayer", "Try again")}</Link>
+            </p>
+          </Alerte>
+        ) : (
+          <ControleCoherence validation={val.donnees} />
+        )}
       </Carte>
 
       {editable ? (

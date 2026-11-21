@@ -28,6 +28,7 @@ import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 /**
  * Éditeur d'items d'un modèle de check-list (domaine, libellé, aide). Sert à créer un modèle
@@ -47,6 +48,7 @@ export function ChecklistEditeur({
   const t = useT();
   const langue = useLangue();
   const f = useFormulaire<string>();
+  const { refListe, focaliser } = useFocusLignes();
   const [code, setCode] = useState("");
   const [intitule, setIntitule] = useState("");
   const [secteur, setSecteur] = useState<RedSecteur>(secteurInitial);
@@ -137,7 +139,11 @@ export function ChecklistEditeur({
           />
         </div>
       )}
-      <ul className="mp-diag-liste" aria-label={t("Items du modèle", "Template items")}>
+      <ul
+        ref={refListe}
+        className="mp-diag-liste"
+        aria-label={t("Items du modèle", "Template items")}
+      >
         {items.map((it, i) => (
           <li key={it.id} className="mp-diag-item">
             <Champ
@@ -167,7 +173,10 @@ export function ChecklistEditeur({
                 variante="discret"
                 disabled={items.length <= 1}
                 aria-label={t(`Retirer l'item ${i + 1}`, `Remove item ${i + 1}`)}
-                onClick={() => setItems((l) => l.filter((_, k) => k !== i))}
+                onClick={() => {
+                  setItems((l) => l.filter((_, k) => k !== i));
+                  focaliser(indexFocusApresRetrait(i, items.length - 1));
+                }}
               >
                 {t("Retirer", "Remove")}
               </Bouton>
@@ -186,7 +195,10 @@ export function ChecklistEditeur({
         <Bouton
           variante="secondaire"
           disabled={items.length >= RED_CHECKLIST_ITEMS_MAX}
-          onClick={() => setItems((l) => [...l, itemVide(l)])}
+          onClick={() => {
+            setItems((l) => [...l, itemVide(l)]);
+            focaliser(items.length);
+          }}
         >
           {t("Ajouter un item", "Add an item")}
         </Bouton>

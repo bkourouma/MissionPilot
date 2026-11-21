@@ -26,6 +26,7 @@ import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
+import { Calcule } from "../ui/Calcule";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -205,15 +206,21 @@ export function FormulaireEstimation() {
               "Briques (codes séparés par des virgules)",
               "Building blocks (comma-separated codes)",
             )}
+            aide={t(
+              "Les codes figurent dans la liste « Briques observées » ci-dessous.",
+              'The codes are listed under "Observed building blocks" below.',
+            )}
             required
+            autoComplete="off"
             value={briques}
             onChange={(e) => setBriques(e.target.value)}
             erreur={f.erreurs.briques}
           />
           <Champ
-            libelle={t(
-              "Effectif minimum (3 à 20, 3 par défaut)",
-              "Minimum sample size (3 to 20, 3 by default)",
+            libelle={t("Effectif minimum", "Minimum sample size")}
+            aide={t(
+              "De 3 à 20 missions ; 3 par défaut.",
+              "From 3 to 20 engagements; 3 by default.",
             )}
             inputMode="numeric"
             value={effectif}
@@ -233,44 +240,52 @@ export function FormulaireEstimation() {
         </div>
       </form>
       {resultat ? (
-        <Tableau
-          legende={t("Temps réels observés par brique", "Actual time observed per building block")}
-          legendeVisible
-          cleLigne={(l) => l.brique_code}
-          lignes={resultat.elements}
-          colonnes={[
-            { cle: "brique_code", entete: t("Brique", "Building block") },
-            {
-              cle: "niveau",
-              entete: t("Base", "Basis"),
-              rendu: (l) => libelleNiveauEstimation(l.niveau, langue),
-            },
-            {
-              cle: "effectif",
-              entete: t("Missions", "Engagements"),
-              alignement: "droite",
-              rendu: (l) => l.effectif_brique ?? "—",
-            },
-            {
-              cle: "q1",
-              entete: t("1er quartile", "1st quartile"),
-              alignement: "droite",
-              rendu: (l) => l.libelles?.q1 ?? "—",
-            },
-            {
-              cle: "mediane",
-              entete: t("Médiane", "Median"),
-              alignement: "droite",
-              rendu: (l) => l.libelles?.mediane ?? "—",
-            },
-            {
-              cle: "q3",
-              entete: t("3e quartile", "3rd quartile"),
-              alignement: "droite",
-              rendu: (l) => l.libelles?.q3 ?? "—",
-            },
-          ]}
-        />
+        <div className="mp-pile" aria-live="polite">
+          <p className="mp-texte-petit">
+            <Calcule />
+          </p>
+          <Tableau
+            legende={t(
+              "Temps réels observés par brique",
+              "Actual time observed per building block",
+            )}
+            legendeVisible
+            cleLigne={(l) => l.brique_code}
+            lignes={resultat.elements}
+            colonnes={[
+              { cle: "brique_code", entete: t("Brique", "Building block") },
+              {
+                cle: "niveau",
+                entete: t("Base", "Basis"),
+                rendu: (l) => libelleNiveauEstimation(l.niveau, langue),
+              },
+              {
+                cle: "effectif",
+                entete: t("Missions", "Engagements"),
+                alignement: "droite",
+                rendu: (l) => l.effectif_brique ?? "—",
+              },
+              {
+                cle: "q1",
+                entete: t("1er quartile", "1st quartile"),
+                alignement: "droite",
+                rendu: (l) => l.libelles?.q1 ?? "—",
+              },
+              {
+                cle: "mediane",
+                entete: t("Médiane", "Median"),
+                alignement: "droite",
+                rendu: (l) => l.libelles?.mediane ?? "—",
+              },
+              {
+                cle: "q3",
+                entete: t("3e quartile", "3rd quartile"),
+                alignement: "droite",
+                rendu: (l) => l.libelles?.q3 ?? "—",
+              },
+            ]}
+          />
+        </div>
       ) : null}
     </>
   );
@@ -362,7 +377,17 @@ export function DecisionDeclaration({
   const OPTS = optsLangue(langue);
   const f = useFormulaire<"commentaire">();
   const [commentaire, setCommentaire] = useState("");
-  const decider = (decision: "validee" | "refusee") =>
+  // Décision en cours : seul le bouton cliqué affiche l'indicateur, l'autre est seulement désactivé.
+  const [enCours, setEnCours] = useState<"validee" | "refusee" | null>(null);
+  const decider = async (decision: "validee" | "refusee") => {
+    setEnCours(decision);
+    try {
+      await envoyerDecision(decision);
+    } finally {
+      setEnCours(null);
+    }
+  };
+  const envoyerDecision = (decision: "validee" | "refusee") =>
     f.envoyer(
       decision === "refusee" && commentaire.trim() === ""
         ? {
@@ -400,20 +425,29 @@ export function DecisionDeclaration({
         )}
       </p>
       <Champ
-        libelle={t("Commentaire (obligatoire pour refuser)", "Comment (required to refuse)")}
+        libelle={t("Commentaire", "Comment")}
+        aide={t("Obligatoire pour refuser.", "Required to refuse.")}
         maxLength={1000}
         value={commentaire}
         onChange={(e) => setCommentaire(e.target.value)}
         erreur={f.erreurs.commentaire}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="button" chargement={f.enCours} onClick={() => decider("validee")}>
+        <Bouton
+          type="button"
+          chargement={enCours === "validee"}
+          disabled={f.enCours}
+          texteChargement={t("Validation…", "Approving…")}
+          onClick={() => decider("validee")}
+        >
           {t("Valider", "Approve")}
         </Bouton>
         <Bouton
           type="button"
-          variante="discret"
-          chargement={f.enCours}
+          variante="secondaire"
+          chargement={enCours === "refusee"}
+          disabled={f.enCours}
+          texteChargement={t("Refus…", "Refusing…")}
           onClick={() => decider("refusee")}
         >
           {t("Refuser", "Refuse")}
@@ -496,7 +530,13 @@ export function FormulaireCompetence() {
         ))}
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="secondaire" icone="plus" chargement={f.enCours}>
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          icone="plus"
+          chargement={f.enCours}
+          texteChargement={t("Ajout…", "Adding…")}
+        >
           {t("Ajouter la compétence", "Add the skill")}
         </Bouton>
       </div>
@@ -523,7 +563,7 @@ export function SelectBriqueTache({
   const [code, setCode] = useState(valeur ?? "");
   return (
     <div>
-      <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
+      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Select
         libelle={libelleTache}
         value={code}
@@ -534,7 +574,7 @@ export function SelectBriqueTache({
           void f.envoyer(
             { ok: true, charge: { brique_code: v === "" ? null : v } },
             (c) => api.put(`/api/capitalisation/missions/${missionId}/taches/${tacheId}/brique`, c),
-            OPTS,
+            { ...OPTS, succes: t("Rattachement enregistré.", "Link saved.") },
           );
         }}
         options={[
@@ -595,6 +635,7 @@ export function BoutonProposition({ cle, seuil }: { cle: string; seuil: number }
         variante="secondaire"
         icone="envoyer"
         chargement={f.enCours}
+        texteChargement={t("Envoi…", "Sending…")}
         onClick={() =>
           f.envoyer(
             { ok: true, charge: { cle, seuil } },

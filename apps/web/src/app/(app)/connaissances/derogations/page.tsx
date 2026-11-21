@@ -1,7 +1,9 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { BoutonProposition } from "../../../../components/connaissances/FormulairesConnaissances";
+import { libelleStatutProposition } from "../../../../components/connaissances/propositions-outils";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
-import { Bouton } from "../../../../components/ui/Bouton";
+import { Bouton, classesBouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
@@ -79,6 +81,15 @@ export default async function PageDerogations({
           <Bouton type="submit" variante="secondaire">
             {t("Analyser", "Analyze")}
           </Bouton>
+          {brut ? (
+            <Link
+              href="/connaissances/derogations"
+              className={classesBouton("discret")}
+              prefetch={false}
+            >
+              {t("Seuil par défaut", "Default threshold")}
+            </Link>
+          ) : null}
         </div>
       </form>
       {!r.ok ? (
@@ -146,7 +157,7 @@ export default async function PageDerogations({
                 {g.proposition ? (
                   <p className="mp-texte-petit">
                     {t("Proposition soumise :", "Proposal submitted:")} {g.proposition.titre} (
-                    {g.proposition.statut}).
+                    {libelleStatutProposition(g.proposition.statut, langue)}).
                   </p>
                 ) : g.au_dessus_du_seuil ? (
                   <BoutonProposition cle={g.cle} seuil={r.donnees.seuil} />

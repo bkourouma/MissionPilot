@@ -243,6 +243,12 @@ function ExecutionIa({
         titre={t("La génération a échoué", "The generation failed")}
       >
         <p>{messageEchecGeneration(g.erreur, langue)}</p>
+        <p>
+          {t(
+            "Aucun contenu n'a été produit ni enregistré : relancez une génération depuis l'écran d'origine.",
+            "No content was produced or saved: start a new generation from the original screen.",
+          )}
+        </p>
       </Alerte>
     );
   }

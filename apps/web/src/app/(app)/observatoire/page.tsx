@@ -16,6 +16,7 @@ import {
   ResumeContributions,
 } from "../../../components/observatoire/VuesObservatoire";
 import { Alerte } from "../../../components/ui/Alerte";
+import { Calcule } from "../../../components/ui/Calcule";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../components/ui/EtatListe";
@@ -157,6 +158,7 @@ export default async function PageObservatoire() {
         <Carte
           titre={t("Score global par secteur et taille", "Overall score by sector and size")}
           niveauTitre={2}
+          actions={<Calcule />}
         >
           <p className="mp-texte-petit mp-texte-doux">
             {t(

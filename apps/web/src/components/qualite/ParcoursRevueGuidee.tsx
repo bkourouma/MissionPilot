@@ -178,7 +178,7 @@ export function ParcoursRevueGuidee({
                       <Bouton
                         variante="secondaire"
                         chargement={a.enCours}
-                        texteChargement="…"
+                        texteChargement={t("Enregistrement…", "Saving…")}
                         aria-label={t(
                           `Marquer comme parcouru : ${e.libelle}`,
                           `Mark as reviewed: ${e.libelle}`,

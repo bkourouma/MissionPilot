@@ -36,6 +36,7 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 /**
  * Nouvelle version de covenants (0 à 12 lignes) : ajout seul, la version précédente reste dans
@@ -52,6 +53,7 @@ export function CovenantsFormulaire({
   const t = useT();
   const langue = useLangue();
   const f = useFormulaire<ChampCovenants>();
+  const { refListe, focaliser } = useFocusLignes();
   const [s, setS] = useState<SaisieCovenants>(() => saisieCovenantsDepuis(version));
   const optionsRatios = RED_COVENANT_RATIOS.map((v) => ({
     valeur: v,
@@ -111,7 +113,7 @@ export function CovenantsFormulaire({
           )}
         </p>
       ) : (
-        <ul className="mp-red-lignes">
+        <ul ref={refListe} className="mp-red-lignes">
           {s.covenants.map((c, i) => (
             <li key={c.cle} className="mp-red-ligne">
               <p className="mp-red-ligne__reference">Covenant {i + 1}</p>
@@ -157,9 +159,10 @@ export function CovenantsFormulaire({
                   `Retirer le covenant ${i + 1} (${libelleRatioCovenant(c.ratio)})`,
                   `Remove covenant ${i + 1} (${libelleRatioCovenant(c.ratio, langue)})`,
                 )}
-                onClick={() =>
-                  setS((x) => ({ ...x, covenants: x.covenants.filter((y) => y.cle !== c.cle) }))
-                }
+                onClick={() => {
+                  setS((x) => ({ ...x, covenants: x.covenants.filter((y) => y.cle !== c.cle) }));
+                  focaliser(indexFocusApresRetrait(i, s.covenants.length - 1));
+                }}
               >
                 {t("Retirer", "Remove")}
               </Bouton>
@@ -171,7 +174,10 @@ export function CovenantsFormulaire({
         <Bouton
           variante="secondaire"
           disabled={s.covenants.length >= RED_COVENANTS_PAR_VERSION_MAX}
-          onClick={() => setS((x) => ({ ...x, covenants: [...x.covenants, covenantVide()] }))}
+          onClick={() => {
+            setS((x) => ({ ...x, covenants: [...x.covenants, covenantVide()] }));
+            focaliser(s.covenants.length);
+          }}
         >
           {t("Ajouter un covenant", "Add a covenant")}
         </Bouton>

@@ -7,6 +7,7 @@ import {
 } from "../../../../../components/connaissances/FormulairesConnaissances";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
@@ -45,6 +46,13 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
   if (!r.ok) {
     return (
       <div className="mp-page mp-connaissances">
+        <EnteteDePage
+          titre={t("Retour d'expérience", "Lessons learned")}
+          retour={{
+            href: "/connaissances/retours",
+            libelle: t("Retours d'expérience", "Lessons learned"),
+          }}
+        />
         <EtatErreur
           titre={t(
             "Ce retour d'expérience n'a pas pu être chargé.",
@@ -86,7 +94,10 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
           </BadgeStatut>
         }
         actions={
-          <Link href={`/connaissances/missions/${d.mission_id}/briques`}>
+          <Link
+            href={`/connaissances/missions/${d.mission_id}/briques`}
+            className={classesBouton("secondaire")}
+          >
             {t("Briques des tâches", "Task building blocks")}
           </Link>
         }
