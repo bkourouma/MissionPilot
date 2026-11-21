@@ -240,7 +240,6 @@ function FormulaireSignature({
       ) : null}
       <RetourFormulaire
         erreur={f.erreurGlobale}
-        succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur={t("Signature impossible", "Could not sign")}
       />

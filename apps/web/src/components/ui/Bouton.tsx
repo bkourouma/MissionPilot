@@ -1,6 +1,6 @@
 import { useId, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
 import { T } from "../i18n/T";
-import { accessibiliteBouton, classesEtatBouton } from "./Bouton.aide";
+import { accessibiliteBouton } from "./Bouton.aide";
 import { Icone, type NomIcone } from "./Icone";
 
 export type VarianteBouton = "primaire" | "secondaire" | "discret" | "danger";
@@ -59,11 +59,7 @@ export function Bouton({
     describedBy: describedByAppelant,
     title,
   });
-  const classes = [
-    classesBouton(variante, pleineLargeur),
-    classesEtatBouton(chargement, Boolean(icone)),
-    className ?? "",
-  ]
+  const classes = [classesBouton(variante, pleineLargeur), className ?? ""]
     .filter(Boolean)
     .join(" ");
   return (

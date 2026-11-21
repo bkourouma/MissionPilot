@@ -143,9 +143,8 @@ code {
 }
 
 /* Contrôles arrondis : l'anneau suit le rayon. */
-a:focus-visible,
-button:focus-visible,
-summary:focus-visible {
+/* :where() : spécificité nulle, pour ne pas écraser l'arrondi des composants (cloche, onglets). */
+:where(a, button, summary):focus-visible {
   border-radius: var(--mp-rayon);
 }
 

@@ -35,10 +35,3 @@ export function accessibiliteBouton(e: EntreeAccessibiliteBouton): SortieAccessi
     title: e.title ?? (idRaison ? raison : undefined),
   };
 }
-
-/** Classes d'un bouton : variante, pleine largeur, état chargement. */
-export function classesEtatBouton(chargement: boolean, avecIcone: boolean): string {
-  return [chargement ? "mp-bouton--chargement" : "", avecIcone ? "mp-bouton--avec-icone" : ""]
-    .filter(Boolean)
-    .join(" ");
-}

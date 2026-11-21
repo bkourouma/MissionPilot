@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessibiliteBouton, classesEtatBouton } from "./Bouton.aide";
+import { accessibiliteBouton } from "./Bouton.aide";
 
 describe("accessibiliteBouton", () => {
   it("n'ajoute rien à un bouton actif", () => {
@@ -50,12 +50,5 @@ describe("accessibiliteBouton", () => {
     });
     expect(r.ariaDescribedBy).toBe("aide b1-raison");
     expect(r.title).toBe("Mon titre");
-  });
-});
-
-describe("classesEtatBouton", () => {
-  it("compose les classes d'état", () => {
-    expect(classesEtatBouton(false, false)).toBe("");
-    expect(classesEtatBouton(true, true)).toBe("mp-bouton--chargement mp-bouton--avec-icone");
   });
 });

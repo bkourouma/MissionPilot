@@ -285,7 +285,15 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
         <Bouton type="submit" chargement={envoi} texteChargement={t("Création…", "Creating…")}>
           {t("Créer le brouillon", "Create the draft")}
         </Bouton>
-        <Bouton type="button" variante="discret" onClick={() => setOuvert(false)} disabled={envoi}>
+        <Bouton
+          type="button"
+          variante="discret"
+          onClick={() => {
+            setOuvert(false);
+            setTentative(0);
+          }}
+          disabled={envoi}
+        >
           {t("Annuler", "Cancel")}
         </Bouton>
       </div>
