@@ -1,0 +1,389 @@
+/* Accueil (tableau de bord) : classes propres à la page, préfixe mp-tdb-. Les classes partagées (.mp-carte, .mp-tableau, .mp-badge) restent dans styles/. Jetons --mp-* uniquement, aucune ombre. */
+
+/* ---------- Sections ---------- */
+.mp-tdb-section,
+.mp-tdb-modules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+}
+
+.mp-tdb-section__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+
+.mp-tdb-section__entete .mp-section__titre {
+  margin-bottom: 0;
+}
+
+.mp-tdb-modules__compte {
+  font-size: var(--mp-taille-s);
+}
+
+.mp-tdb-vide {
+  padding: var(--mp-esp-4);
+  text-align: center;
+  background: var(--mp-surface);
+  border: 1px dashed var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+}
+
+/* ---------- À traiter en premier : brief et alertes, côte à côte quand la place le permet ---------- */
+.mp-tdb-attention {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .mp-tdb-attention--double {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Bloc de pilotage (indicateurs du cabinet) ---------- */
+.mp-tdb-bloc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-tdb-bloc__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-tdb-bloc__titre {
+  font-size: var(--mp-taille-m);
+}
+
+/* Liste d'indicateurs : une ligne par indicateur, valeur tabulaire alignée à droite. */
+.mp-tdb-kpi {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-tdb-kpi__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "titre valeur"
+    "definition etat";
+  align-items: start;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border-top: 1px solid var(--mp-bordure);
+}
+
+.mp-tdb-kpi__ligne:first-child {
+  border-top: 0;
+}
+
+.mp-tdb-kpi__titre {
+  grid-area: titre;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-tdb-kpi__definition {
+  grid-area: definition;
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-tdb-kpi__valeur {
+  grid-area: valeur;
+  margin: 0;
+  text-align: right;
+  font-family: var(--mp-police-chiffres);
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-tdb-kpi__etat {
+  grid-area: etat;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--mp-esp-1);
+  max-width: 16rem;
+  text-align: right;
+}
+
+.mp-tdb-kpi__detail {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-tdb-kpi__reserve {
+  grid-area: valeur;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-style: italic;
+  text-align: right;
+}
+
+@media (max-width: 639px) {
+  .mp-tdb-kpi__ligne {
+    grid-template-areas:
+      "titre valeur"
+      "definition definition"
+      "etat etat";
+    padding: var(--mp-esp-3);
+  }
+  .mp-tdb-kpi__etat {
+    max-width: none;
+    justify-self: end;
+  }
+}
+
+/* ---------- Alertes de dérive, tableau de niveau : cibles de 44 px, chiffres tabulaires ---------- */
+.mp-alertes-derive__lien,
+.mp-alertes-derive > li > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+}
+
+.mp-alertes-derive__ligne {
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+}
+
+.mp-tdb-niveau .mp-aligne-droite {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Modules : tuiles denses ---------- */
+.mp-tdb-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-tdb-groupe__titre {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mp-tdb-tuiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-tdb-tuile {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  transition: background-color var(--mp-duree) var(--mp-sortie);
+}
+
+.mp-tdb-tuile:hover {
+  background: var(--mp-survol-ligne);
+}
+
+/* L'anneau de focus suit toute la tuile (le lien l'étend par son ::after). */
+.mp-tdb-tuile:has(.mp-tdb-tuile__lien:focus-visible) {
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
+  outline-offset: var(--mp-focus-decalage);
+}
+
+.mp-tdb-tuile__icone {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--mp-texte-doux);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-tdb-tuile--quotidien .mp-tdb-tuile__icone {
+  color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+}
+
+.mp-tdb-tuile__texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mp-tdb-tuile__lien,
+.mp-tdb-tuile__nom {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-tdb-tuile__lien {
+  color: var(--mp-texte);
+  text-decoration: none;
+}
+
+.mp-tdb-tuile__lien:hover {
+  color: var(--mp-primaire);
+  text-decoration: underline;
+}
+
+.mp-tdb-tuile__lien:focus-visible {
+  outline: none;
+}
+
+.mp-tdb-tuile__lien::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-tdb-tuile__description {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* Modules pas encore livrés : creux, repliés par défaut. */
+.mp-tdb-indisponibles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-tdb-indisponibles[open] {
+  gap: var(--mp-esp-3);
+}
+
+.mp-tdb-indisponibles__resume {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  color: var(--mp-texte-doux);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-tdb-indisponibles__resume:hover {
+  color: var(--mp-texte);
+}
+
+.mp-tdb-indisponibles__compteur {
+  min-width: 1.5rem;
+  padding: 0 var(--mp-esp-2);
+  color: var(--mp-neutre);
+  background: var(--mp-neutre-fond);
+  border-radius: 999px;
+  font-size: var(--mp-taille-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.mp-tdb-tuile--indisponible {
+  background: var(--mp-surface-2);
+}
+
+.mp-tdb-tuile--indisponible:hover {
+  background: var(--mp-surface-2);
+}
+
+.mp-tdb-tuile--indisponible .mp-tdb-tuile__nom {
+  color: var(--mp-texte-doux);
+}
+
+/* ---------- Votre compte : discret, en pied de page ---------- */
+.mp-tdb-compte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  padding-top: var(--mp-esp-4);
+  border-top: 1px solid var(--mp-bordure);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-tdb-compte__titre {
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+}
+
+.mp-tdb-compte__liste {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-tdb-compte__liste > div {
+  display: flex;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-tdb-compte__liste dt {
+  font-weight: 600;
+}
+
+.mp-tdb-compte__liste dt::after {
+  content: ":";
+}
+
+.mp-tdb-compte__liste dd {
+  margin: 0;
+  color: var(--mp-texte);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-tdb-tuile {
+    transition: none;
+  }
+}

@@ -4,6 +4,7 @@ import { libelleRole, type Langue, type Role } from "@missionpilot/shared";
 import { obtenirLangue } from "../../lib/i18n/serveur";
 import { SelecteurLangue } from "../i18n/SelecteurLangue";
 import type { EntreeNavigation } from "../../lib/navigation";
+import { AnnonceNavigation } from "./AnnonceNavigation";
 import { ClocheNotifications } from "./ClocheNotifications";
 import { Marque } from "./Marque";
 import { BarreNavigationBasse, NavigationLaterale } from "./Navigation";
@@ -39,7 +40,8 @@ export async function CadreApplication({ nom, roles, entrees, children }: CadreA
           <Marque />
         </Link>
         <div className="mp-entete__actions">
-          <SelecteurLangue className="mp-langue--nuit" />
+          {/* Au grand écran, le sélecteur passe en pied de rail (la colonne du logo est étroite). */}
+          <SelecteurLangue className="mp-langue--nuit mp-entete__langue" />
           <ClocheNotifications />
         </div>
       </header>
@@ -49,6 +51,7 @@ export async function CadreApplication({ nom, roles, entrees, children }: CadreA
           {children}
         </main>
       </div>
+      <AnnonceNavigation />
       <BarreNavigationBasse entrees={entrees} nom={nom} roles={libelles} />
     </div>
   );

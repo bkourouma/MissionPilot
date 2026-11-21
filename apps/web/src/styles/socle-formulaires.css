@@ -1,0 +1,154 @@
+/* Compléments du socle pour formulaires (cases, zone de texte, filtres, confirmation). Propriétaire : lot 0. Chargé après les feuilles de rubrique : surcharge les règles de referentiels.css (même spécificité, ordre de chargement). */
+
+/* ---------- Groupe de cases ---------- */
+.mp-groupe--erreur .mp-groupe__options {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-danger-fond);
+  border: 1px solid var(--mp-danger);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Case à cocher ---------- */
+.mp-case {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-height: var(--mp-cible);
+  border-radius: var(--mp-rayon);
+  transition: background-color var(--mp-duree) var(--mp-sortie);
+}
+
+.mp-case:hover:not(.mp-case--erreur) {
+  background: var(--mp-survol-ligne);
+}
+
+/* Boîte de 22 px centrée dans une ligne de 44 px ; le libellé prolonge la zone cliquable. */
+.mp-case__controle {
+  flex-shrink: 0;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: 0.6875rem 0 0 0.5rem;
+  accent-color: var(--mp-primaire);
+  cursor: pointer;
+}
+
+.mp-case__controle:focus-visible {
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
+  outline-offset: var(--mp-focus-decalage);
+}
+
+.mp-case__texte {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.mp-case__libelle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-2) var(--mp-esp-3) var(--mp-esp-2) var(--mp-esp-2);
+  cursor: pointer;
+}
+
+.mp-case__aide {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-case__texte > .mp-champ__erreur {
+  padding: 0 var(--mp-esp-3) var(--mp-esp-2) var(--mp-esp-2);
+}
+
+.mp-case__controle:disabled {
+  cursor: not-allowed;
+}
+.mp-case__controle:disabled ~ .mp-case__texte .mp-case__libelle {
+  color: var(--mp-texte-doux);
+  cursor: not-allowed;
+}
+
+/* Erreur : fond de statut, contour de la boîte et message (icône + texte) sous le libellé. */
+.mp-case--erreur {
+  background: var(--mp-danger-fond);
+}
+.mp-case--erreur .mp-case__controle {
+  outline: 2px solid var(--mp-danger);
+  outline-offset: 1px;
+}
+.mp-case--erreur .mp-case__controle:focus-visible {
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
+  outline-offset: var(--mp-focus-decalage);
+}
+
+/* ---------- Zone de texte ---------- */
+.mp-zone-texte {
+  resize: vertical;
+  min-height: 5rem;
+  max-width: 100%;
+  line-height: 1.5;
+}
+
+.mp-zone-texte__compteur {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.mp-zone-texte__compteur--proche {
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+.mp-zone-texte__compteur--atteint {
+  color: var(--mp-danger);
+  font-weight: 700;
+}
+
+/* ---------- Filtres ---------- */
+.mp-filtres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-filtre-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+/* ---------- Confirmation en deux temps ---------- */
+.mp-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-danger-fond);
+  border: 1px solid var(--mp-danger);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-confirmation__question {
+  color: var(--mp-texte);
+  font-weight: 650;
+}
+
+.mp-confirmation__boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+/* Téléphone étroit : les deux boutons prennent toute la largeur, faciles à toucher. */
+@media (max-width: 479px) {
+  .mp-confirmation__boutons > .mp-bouton {
+    flex: 1 1 100%;
+  }
+}

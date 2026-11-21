@@ -3,6 +3,7 @@ import { useId } from "react";
 import { T } from "../i18n/T";
 import { pagesAffichees } from "../../lib/pagination";
 import { Icone } from "./Icone";
+import { libellePlage, plageAffichee } from "./Pagination.plage";
 
 export interface PaginationProps {
   page: number;
@@ -14,14 +15,26 @@ export interface PaginationProps {
   hrefPage: (page: number) => string;
   /** Nom de la zone de navigation pour les lecteurs d'écran. */
   libelle?: string;
+  /** Nombre total d'éléments ; avec `taillePage`, affiche « 21–40 sur 134 ». */
+  total?: number;
+  /** Éléments par page (nécessaire au calcul de la plage affichée). */
+  taillePage?: number;
 }
 
 /** À utiliser depuis un Server Component (`hrefPage` est une fonction). */
-export function Pagination({ page, totalPages, hrefPage, libelle }: PaginationProps) {
+export function Pagination({
+  page,
+  totalPages,
+  hrefPage,
+  libelle,
+  total,
+  taillePage,
+}: PaginationProps) {
   const idLibelle = useId();
   if (totalPages <= 1) return null;
   const courante = Math.min(Math.max(1, page), totalPages);
   const elements = pagesAffichees(courante, totalPages);
+  const plage = plageAffichee(courante, taillePage, total);
   return (
     <nav
       className="mp-pagination"
@@ -30,11 +43,18 @@ export function Pagination({ page, totalPages, hrefPage, libelle }: PaginationPr
     >
       {libelle ? null : (
         <span id={idLibelle} className="mp-visuellement-cache">
-          Pagination
+          <T fr="Pagination" en="Pagination" />
         </span>
       )}
       <p className="mp-pagination__resume">
-        <T fr={`Page ${courante} sur ${totalPages}`} en={`Page ${courante} of ${totalPages}`} />
+        {plage ? (
+          <span className="mp-pagination__plage">
+            <T fr={libellePlage(plage, "fr")} en={libellePlage(plage, "en")} />
+          </span>
+        ) : null}
+        <span>
+          <T fr={`Page ${courante} sur ${totalPages}`} en={`Page ${courante} of ${totalPages}`} />
+        </span>
       </p>
       <ul className="mp-pagination__liste">
         <li>
@@ -65,8 +85,10 @@ export function Pagination({ page, totalPages, hrefPage, libelle }: PaginationPr
                 className="mp-pagination__lien"
                 href={hrefPage(el)}
                 aria-current={el === courante ? "page" : undefined}
-                aria-label={`Page ${el}`}
               >
+                <span className="mp-visuellement-cache">
+                  <T fr="Page " en="Page " />
+                </span>
                 {el}
               </Link>
             </li>

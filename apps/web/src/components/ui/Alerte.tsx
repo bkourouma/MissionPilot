@@ -20,11 +20,13 @@ export interface AlerteProps {
    * message statique présent dès l'affichage de la page.
    */
   annonce?: "alert" | "status" | "aucune";
+  /** Liens ou boutons placés sous le texte (ex. « Réessayer », « Voir le détail »). */
+  actions?: ReactNode;
   /** Pour déplacer le focus sur l'alerte (elle reçoit tabIndex -1). */
   ref?: Ref<HTMLDivElement>;
 }
 
-export function Alerte({ tonalite = "info", titre, children, annonce, ref }: AlerteProps) {
+export function Alerte({ tonalite = "info", titre, children, annonce, actions, ref }: AlerteProps) {
   const role = annonce ?? (tonalite === "danger" ? "alert" : "status");
   return (
     <div
@@ -37,6 +39,7 @@ export function Alerte({ tonalite = "info", titre, children, annonce, ref }: Ale
       <div className="mp-alerte__contenu">
         {titre ? <p className="mp-alerte__titre">{titre}</p> : null}
         {children ? <div className="mp-alerte__texte">{children}</div> : null}
+        {actions ? <div className="mp-alerte__actions">{actions}</div> : null}
       </div>
     </div>
   );

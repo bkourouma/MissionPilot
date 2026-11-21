@@ -32,7 +32,12 @@ export function Select({
 }: SelectProps) {
   const auto = useId();
   const idChamp = id ?? auto;
-  const { describedBy } = idsDescription(idChamp, Boolean(aide), Boolean(erreur));
+  const { describedBy } = idsDescription(
+    idChamp,
+    Boolean(aide),
+    Boolean(erreur),
+    reste["aria-describedby"],
+  );
   return (
     <CadreChamp id={idChamp} libelle={libelle} aide={aide} erreur={erreur} requis={required}>
       <select
@@ -42,7 +47,7 @@ export function Select({
         className={
           className ? `mp-champ__controle mp-select ${className}` : "mp-champ__controle mp-select"
         }
-        aria-invalid={erreur ? true : undefined}
+        aria-invalid={erreur ? true : reste["aria-invalid"]}
         aria-describedby={describedBy}
       >
         {invite !== undefined ? <option value="">{invite}</option> : null}

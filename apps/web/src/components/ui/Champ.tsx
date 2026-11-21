@@ -3,10 +3,11 @@ import { T } from "../i18n/T";
 import { Icone } from "./Icone";
 
 /** Identifiants des textes d'aide et d'erreur liés à un champ par aria-describedby. */
-export function idsDescription(id: string, aide: boolean, erreur: boolean) {
+export function idsDescription(id: string, aide: boolean, erreur: boolean, extra?: string) {
   const idAide = aide ? `${id}-aide` : undefined;
   const idErreur = erreur ? `${id}-erreur` : undefined;
-  const describedBy = [idAide, idErreur].filter(Boolean).join(" ") || undefined;
+  // `extra` : aria-describedby fourni par l'appelant, conservé en tête.
+  const describedBy = [extra, idAide, idErreur].filter(Boolean).join(" ") || undefined;
   return { idAide, idErreur, describedBy };
 }
 
@@ -64,7 +65,12 @@ export interface ChampProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
 export function Champ({ libelle, aide, erreur, id, required, className, ...reste }: ChampProps) {
   const auto = useId();
   const idChamp = id ?? auto;
-  const { describedBy } = idsDescription(idChamp, Boolean(aide), Boolean(erreur));
+  const { describedBy } = idsDescription(
+    idChamp,
+    Boolean(aide),
+    Boolean(erreur),
+    reste["aria-describedby"],
+  );
   return (
     <CadreChamp id={idChamp} libelle={libelle} aide={aide} erreur={erreur} requis={required}>
       <input
@@ -72,7 +78,7 @@ export function Champ({ libelle, aide, erreur, id, required, className, ...reste
         id={idChamp}
         required={required}
         className={className ? `mp-champ__controle ${className}` : "mp-champ__controle"}
-        aria-invalid={erreur ? true : undefined}
+        aria-invalid={erreur ? true : reste["aria-invalid"]}
         aria-describedby={describedBy}
       />
     </CadreChamp>

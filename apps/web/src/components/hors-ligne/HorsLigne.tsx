@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLangue } from "../i18n/FournisseurLangue";
+import { Icone } from "../ui/Icone";
 import { messageReseau } from "../../lib/hors-ligne/etats";
 import { purgerDonneesHorsLigne } from "../../lib/hors-ligne/magasins";
 import "./hors-ligne.css";
@@ -13,7 +14,8 @@ const DUREE_RETOUR_MS = 6_000;
  * - enregistre le service worker (`public/sw.js`, portée `/`), sans bloquer l'affichage ;
  * - vide la file hors ligne quand le service worker signale une déconnexion ;
  * - affiche l'état du réseau dans une zone `role="status"` toujours présente (annonce polie
- *   aux lecteurs d'écran), visible seulement hors connexion et au retour du réseau.
+ *   aux lecteurs d'écran), visible seulement hors connexion et au retour du réseau. Bandeau dans
+ *   le flux, jamais fixe : il ne bloque aucune action et ne recouvre ni l'en-tête ni la barre basse.
  */
 export function HorsLigne() {
   const langue = useLangue();
@@ -71,7 +73,12 @@ export function HorsLigne() {
       aria-live="polite"
       aria-atomic="true"
     >
-      {texte ? <p className="mp-reseau__texte">{texte}</p> : null}
+      {texte ? (
+        <p className="mp-reseau__texte">
+          <Icone nom={enLigne ? "succes" : "attention"} taille={18} />
+          <span>{texte}</span>
+        </p>
+      ) : null}
     </div>
   );
 }

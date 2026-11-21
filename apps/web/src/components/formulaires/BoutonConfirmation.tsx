@@ -14,6 +14,8 @@ export interface BoutonConfirmationProps {
   libelleConfirmation: string;
   action: () => Promise<boolean | void>;
   variante?: VarianteBouton;
+  /** Variante du bouton de confirmation : « danger » (défaut) ou « primaire » pour une action non destructrice. */
+  varianteConfirmation?: "danger" | "primaire";
   icone?: NomIcone;
   texteChargement?: string;
   /** Nom accessible complet du premier bouton quand le libellé seul est ambigu. */
@@ -30,6 +32,7 @@ export function BoutonConfirmation({
   libelleConfirmation,
   action,
   variante = "secondaire",
+  varianteConfirmation = "danger",
   icone,
   texteChargement,
   ariaLabel,
@@ -81,7 +84,7 @@ export function BoutonConfirmation({
       <div className="mp-confirmation__boutons">
         <Bouton
           ref={refConfirmer}
-          variante="danger"
+          variante={varianteConfirmation}
           chargement={enCours}
           texteChargement={texteChargement ?? t("En cours…", "In progress…")}
           onClick={confirmer}

@@ -9,6 +9,7 @@ import {
 import { formaterJours } from "../../lib/format";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Icone } from "../ui/Icone";
+import "./tableau-de-bord.css";
 
 /**
  * Un indicateur : libellé, définition (PRD), valeur servie par l'API, statut (couleur, icône et
@@ -59,7 +60,10 @@ export function GrilleIndicateurs({
   langue?: Langue;
 }) {
   return (
-    <ul className="mp-grille-indicateurs">
+    <ul
+      className="mp-grille-indicateurs"
+      aria-label={langue === "en" ? "Indicators" : "Indicateurs"}
+    >
       {indicateurs.map((i) => (
         <li key={i.definition.id}>
           <CarteIndicateur indicateur={i} langue={langue} />
@@ -83,7 +87,7 @@ export function ListeAlertesDerive({
   const affichees = limite ? alertes.slice(0, limite) : alertes;
   if (alertes.length === 0) {
     return (
-      <p className="mp-texte-succes mp-ligne-icone">
+      <p className="mp-texte-succes mp-ligne-icone" role="status">
         <Icone nom="succes" taille={18} />
         <span>
           {t(
@@ -95,7 +99,7 @@ export function ListeAlertesDerive({
     );
   }
   return (
-    <ul className="mp-alertes-derive">
+    <ul className="mp-alertes-derive" aria-label={t("Missions en dérive", "Engagements drifting")}>
       {affichees.map((a) => (
         <li key={a.mission_id} className="mp-alertes-derive__ligne">
           <div className="mp-alertes-derive__texte">
