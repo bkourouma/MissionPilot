@@ -69,8 +69,8 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setSucces(
         t(
-          "Export téléchargé. Le serveur a vérifié que chaque pièce est équilibrée (débit = crédit).",
-          "Export downloaded. The server checked that every entry is balanced (debit = credit).",
+          `Export téléchargé (${nomFichierExport(s.du, s.au)}). Le serveur a vérifié que chaque pièce est équilibrée (débit = crédit).`,
+          `Export downloaded (${nomFichierExport(s.du, s.au)}). The server checked that every entry is balanced (debit = credit).`,
         ),
       );
     } catch (e) {
@@ -93,57 +93,73 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
         refAlerte={refAlerte}
         titreErreur={t("Export refusé", "Export refused")}
       />
-      <div className="mp-grille-champs mp-grille-champs--bas">
-        <Champ
-          libelle={t("Du", "From")}
-          type="date"
-          required
-          value={s.du}
-          onChange={(e) => setS((x) => ({ ...x, du: e.target.value }))}
-          erreur={erreurs.periode}
+      <fieldset className="mp-groupe">
+        <legend className="mp-champ__libelle">{t("Période", "Period")}</legend>
+        <div className="mp-grille-champs mp-grille-champs--bas">
+          <Champ
+            libelle={t("Du", "From")}
+            type="date"
+            required
+            value={s.du}
+            onChange={(e) => setS((x) => ({ ...x, du: e.target.value }))}
+            erreur={erreurs.periode}
+          />
+          <Champ
+            libelle={t("Au", "To")}
+            type="date"
+            required
+            value={s.au}
+            aide={t("Deux ans au plus.", "Two years at most.")}
+            onChange={(e) => setS((x) => ({ ...x, au: e.target.value }))}
+          />
+        </div>
+      </fieldset>
+      <fieldset className="mp-groupe">
+        <legend className="mp-champ__libelle">{t("Format du fichier", "File format")}</legend>
+        <div className="mp-grille-champs mp-grille-champs--bas">
+          <Select
+            libelle={t("Séparateur de colonnes", "Column separator")}
+            options={optionsSeparateurs(langue)}
+            value={s.separateur}
+            onChange={(e) => setS((x) => ({ ...x, separateur: e.target.value as Separateur }))}
+          />
+          <Select
+            libelle={t("Séparateur décimal", "Decimal separator")}
+            options={[
+              { valeur: "virgule", libelle: t("Virgule (1 500,50)", "Comma (1 500,50)") },
+              { valeur: "point", libelle: t("Point (1500.50)", "Period (1500.50)") },
+            ]}
+            value={s.decimale}
+            onChange={(e) =>
+              setS((x) => ({ ...x, decimale: e.target.value as SaisieExport["decimale"] }))
+            }
+            erreur={erreurs.decimale}
+          />
+          <Select
+            libelle={t("Format des dates", "Date format")}
+            options={optionsFormatsDate(langue)}
+            value={s.format_date}
+            onChange={(e) => setS((x) => ({ ...x, format_date: e.target.value as FormatDate }))}
+          />
+        </div>
+        <CaseACocher
+          libelle={t("Compatible Excel (UTF-8 avec BOM)", "Excel-compatible (UTF-8 with BOM)")}
+          aide={t(
+            "Les accents s'affichent correctement à l'ouverture directe dans Excel.",
+            "Accented characters display correctly when opened directly in Excel.",
+          )}
+          checked={s.bom}
+          onChange={(e) => setS((x) => ({ ...x, bom: e.target.checked }))}
         />
-        <Champ
-          libelle={t("Au", "To")}
-          type="date"
-          required
-          value={s.au}
-          aide={t("Deux ans au plus.", "Two years at most.")}
-          onChange={(e) => setS((x) => ({ ...x, au: e.target.value }))}
-        />
-        <Select
-          libelle={t("Séparateur de colonnes", "Column separator")}
-          options={optionsSeparateurs(langue)}
-          value={s.separateur}
-          onChange={(e) => setS((x) => ({ ...x, separateur: e.target.value as Separateur }))}
-        />
-        <Select
-          libelle={t("Séparateur décimal", "Decimal separator")}
-          options={[
-            { valeur: "virgule", libelle: t("Virgule (1 500,50)", "Comma (1 500,50)") },
-            { valeur: "point", libelle: t("Point (1500.50)", "Period (1500.50)") },
-          ]}
-          value={s.decimale}
-          onChange={(e) =>
-            setS((x) => ({ ...x, decimale: e.target.value as SaisieExport["decimale"] }))
-          }
-          erreur={erreurs.decimale}
-        />
-        <Select
-          libelle={t("Format des dates", "Date format")}
-          options={optionsFormatsDate(langue)}
-          value={s.format_date}
-          onChange={(e) => setS((x) => ({ ...x, format_date: e.target.value as FormatDate }))}
-        />
-      </div>
-      <CaseACocher
-        libelle={t("Compatible Excel (UTF-8 avec BOM)", "Excel-compatible (UTF-8 with BOM)")}
-        aide={t(
-          "Les accents s'affichent correctement à l'ouverture directe dans Excel.",
-          "Accented characters display correctly when opened directly in Excel.",
-        )}
-        checked={s.bom}
-        onChange={(e) => setS((x) => ({ ...x, bom: e.target.checked }))}
-      />
+      </fieldset>
+      {enCours ? (
+        <p className="mp-texte-doux" role="status">
+          {t(
+            "Préparation du fichier : le téléchargement démarre dans un instant.",
+            "Preparing the file: the download starts in a moment.",
+          )}
+        </p>
+      ) : null}
       <div className="mp-actions-formulaire">
         <Bouton
           type="submit"

@@ -110,6 +110,9 @@ ul.mp-badges {
 }
 
 .mp-jours-semaine__marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
   padding: 0 var(--mp-esp-2);
   color: var(--mp-sur-primaire);
   background: var(--mp-primaire);
@@ -192,9 +195,12 @@ ul.mp-badges {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+.mp-feuille__saisie {
+  transition: border-color 0.15s;
+}
 .mp-feuille__saisie:focus-visible {
   border-color: var(--mp-focus);
-  outline: 2px solid var(--mp-focus);
+  outline: 3px solid var(--mp-focus);
   outline-offset: 1px;
 }
 .mp-feuille__saisie[aria-invalid="true"] {
@@ -202,7 +208,9 @@ ul.mp-badges {
 }
 
 .mp-feuille__erreur {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
   margin-top: 2px;
   color: var(--mp-danger);
   font-size: var(--mp-taille-xs);
@@ -214,10 +222,24 @@ ul.mp-badges {
   display: block;
   text-align: center;
 }
+.mp-feuille__valeur--ferme {
+  color: var(--mp-texte-doux);
+}
+.mp-feuille__valeur--ferme .mp-icone {
+  margin-right: var(--mp-esp-1);
+  vertical-align: -2px;
+}
+
+/* Rangée en cours de saisie : repère discret, sans couleur seule (le focus reste visible). */
+.mp-feuille__table tbody tr:focus-within > th[scope="row"],
+.mp-feuille__table tbody tr:focus-within > td:last-child {
+  background: var(--mp-primaire-pale);
+}
 
 .mp-feuille__total {
   white-space: nowrap;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Alignements : les règles génériques des cellules (th, td) l'emportent sur une simple classe. */
@@ -291,6 +313,22 @@ ul.mp-badges {
 @media (min-width: 960px) {
   .mp-feuille__barre {
     bottom: var(--mp-esp-3);
+  }
+}
+
+/* Tablette : le libellé de la rangée reste visible quand le tableau défile. */
+@media (min-width: 640px) {
+  .mp-feuille__table tbody th.mp-feuille__libelle {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--mp-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-feuille__saisie {
+    transition: none;
   }
 }
 
@@ -379,6 +417,33 @@ ul.mp-badges {
 }
 
 /* ---------- Plan de charge ---------- */
+.mp-charge__aide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+.mp-charge__titre-legende {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+.mp-charge__seuil {
+  font-variant-numeric: tabular-nums;
+}
+.mp-charge__chiffres {
+  font-variant-numeric: tabular-nums;
+}
+.mp-charge__navigation {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mp-charge__periode {
+  flex: 1 1 10rem;
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 .mp-charge__legende {
   display: flex;
   flex-wrap: wrap;
@@ -416,9 +481,9 @@ ul.mp-badges {
 }
 .mp-charge__table th,
 .mp-charge__table td {
-  padding: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
   border-bottom: 1px solid var(--mp-bordure);
-  text-align: center;
+  text-align: right;
   white-space: nowrap;
 }
 .mp-charge__table thead th {
@@ -456,7 +521,7 @@ ul.mp-badges {
 .mp-charge__contenu {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 1px;
 }
 .mp-charge__taux {
@@ -556,6 +621,43 @@ ul.mp-badges {
 .mp-affectation > .mp-pile,
 .mp-affectation > .mp-formulaire {
   flex: 1 1 100%;
+}
+
+/* ---------- Temps : validation, corrections, débours, discipline ---------- */
+
+/* Confirmation d'une décision positive (valider) : neutre, jamais rouge comme une suppression. */
+.mp-confirmation-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-confirmation-decision__question {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Résumé au-dessus d'une file (nombre d'éléments à traiter). */
+.mp-resume-file {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cellule « action » d'un tableau : le bouton reste sur une ligne. */
+.mp-cellule-action {
+  white-space: nowrap;
+}
+
+/* Discipline : ratio « réussies sur attendues » lisible et sur une ligne. */
+.mp-ratio-discipline {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Cloche de l'en-tête ---------- */

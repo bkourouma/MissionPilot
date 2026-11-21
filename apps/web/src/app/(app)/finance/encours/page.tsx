@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { aPermission, creerTraduire, type Langue } from "@missionpilot/shared";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
+import { Calcule } from "../../../../components/ui/Calcule";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
@@ -106,6 +107,7 @@ export default async function PageEncours() {
         <>
           {r.donnees.cabinet ? (
             <Carte
+              actions={<Calcule />}
               titre={t(
                 `Cabinet au ${formaterDate(r.donnees.date)}`,
                 `Firm as of ${formaterDate(r.donnees.date, "UTC", langue)}`,

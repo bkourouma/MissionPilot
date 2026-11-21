@@ -57,6 +57,8 @@ export function ActionsFacture({
     });
   const aucune = !Object.entries(a).some(([k, v]) => k !== "raisonRefusApprobation" && v === true);
   if (aucune) return null;
+  const principales = a.modifier || a.soumettre || a.approuver || a.emettre || a.marquerEnvoyee;
+  const sensibles = a.rejeter || a.avoir || a.supprimer;
 
   return (
     <Carte titre={t("Actions", "Actions")}>
@@ -67,124 +69,154 @@ export function ActionsFacture({
           refAlerte={op.refAlerte}
           titreErreur={t("Action impossible", "Action not possible")}
         />
-        <div className="mp-barre-actions">
-          {a.modifier ? (
-            <Bouton
-              variante="secondaire"
-              icone="crayon"
-              aria-expanded={panneau === "entete"}
-              onClick={() => setPanneau(panneau === "entete" ? null : "entete")}
-            >
-              {t(
-                "Objet, remise, retenue et délai",
-                "Subject, discount, withholding and payment terms",
-              )}
-            </Bouton>
-          ) : null}
-          {a.soumettre ? (
-            <Bouton
-              icone="envoyer"
-              chargement={occupe}
-              texteChargement={t("Soumission…", "Submitting…")}
-              onClick={() =>
-                poster(
-                  "soumettre",
-                  t("Facture soumise à approbation.", "Invoice submitted for approval."),
-                )
-              }
-            >
-              {t("Soumettre à approbation", "Submit for approval")}
-            </Bouton>
-          ) : null}
-          {a.approuver ? (
-            <Bouton
-              icone="succes"
-              chargement={occupe}
-              texteChargement={t("Approbation…", "Approving…")}
-              onClick={() => poster("approuver", t("Facture approuvée.", "Invoice approved."))}
-            >
-              {t("Approuver", "Approve")}
-            </Bouton>
-          ) : null}
-          {a.rejeter ? (
-            <Bouton
-              variante="secondaire"
-              aria-expanded={panneau === "rejet"}
-              onClick={() => setPanneau(panneau === "rejet" ? null : "rejet")}
-            >
-              {t("Rejeter", "Reject")}
-            </Bouton>
-          ) : null}
-          {a.emettre ? (
-            <BoutonConfirmation
-              libelle={t("Émettre la facture", "Issue the invoice")}
-              variante="primaire"
-              icone="signature"
-              question={t(
-                "Émettre cette facture ? Elle reçoit son numéro définitif et ne pourra plus être modifiée : seule une annulation par avoir sera possible.",
-                "Issue this invoice? It receives its final number and can no longer be edited: only a cancellation by credit note will be possible.",
-              )}
-              libelleConfirmation={t("Oui, émettre", "Yes, issue")}
-              texteChargement={t("Émission…", "Issuing…")}
-              action={() =>
-                poster(
-                  "emettre",
-                  t(
-                    "Facture émise : numéro définitif attribué.",
-                    "Invoice issued: final number assigned.",
-                  ),
-                )
-              }
-            />
-          ) : null}
-          {a.marquerEnvoyee ? (
-            <BoutonConfirmation
-              libelle={t("Marquer comme envoyée", "Mark as sent")}
-              icone="courrier"
-              question={t(
-                "Confirmer que la facture a été envoyée au client ? Cette mention ne s'annule pas.",
-                "Confirm that the invoice was sent to the client? This mark cannot be undone.",
-              )}
-              libelleConfirmation={t("Oui, marquer envoyée", "Yes, mark as sent")}
-              texteChargement={t("Enregistrement…", "Saving…")}
-              action={() =>
-                poster(
-                  "marquer-envoyee",
-                  t("Facture marquée comme envoyée.", "Invoice marked as sent."),
-                )
-              }
-            />
-          ) : null}
-          {a.avoir ? (
-            <Bouton
-              variante="secondaire"
-              aria-expanded={panneau === "avoir"}
-              onClick={() => setPanneau(panneau === "avoir" ? null : "avoir")}
-            >
-              {t("Annuler par un avoir", "Cancel by credit note")}
-            </Bouton>
-          ) : null}
-          {a.supprimer ? (
-            <BoutonConfirmation
-              libelle={t("Supprimer le brouillon", "Delete the draft")}
-              variante="discret"
-              icone="corbeille"
-              question={t(
-                "Supprimer ce brouillon ? Ses échéances et débours redeviennent facturables.",
-                "Delete this draft? Its due dates and expenses become invoiceable again.",
-              )}
-              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
-              texteChargement={t("Suppression…", "Deleting…")}
-              action={() =>
-                op.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin), {
-                  rafraichir: false,
-                  apres: () => router.push("/facturation"),
-                  messageSpecifique,
-                })
-              }
-            />
-          ) : null}
-        </div>
+        {principales ? (
+          <div className="mp-actions-groupe">
+            <div className="mp-barre-actions">
+              {a.modifier ? (
+                <Bouton
+                  variante="secondaire"
+                  icone="crayon"
+                  aria-expanded={panneau === "entete"}
+                  onClick={() => setPanneau(panneau === "entete" ? null : "entete")}
+                >
+                  {t(
+                    "Objet, remise, retenue et délai",
+                    "Subject, discount, withholding and payment terms",
+                  )}
+                </Bouton>
+              ) : null}
+              {a.soumettre ? (
+                <Bouton
+                  icone="envoyer"
+                  chargement={occupe}
+                  texteChargement={t("Soumission…", "Submitting…")}
+                  onClick={() =>
+                    poster(
+                      "soumettre",
+                      t("Facture soumise à approbation.", "Invoice submitted for approval."),
+                    )
+                  }
+                >
+                  {t("Soumettre à approbation", "Submit for approval")}
+                </Bouton>
+              ) : null}
+              {a.approuver ? (
+                <Bouton
+                  icone="succes"
+                  chargement={occupe}
+                  texteChargement={t("Approbation…", "Approving…")}
+                  onClick={() => poster("approuver", t("Facture approuvée.", "Invoice approved."))}
+                >
+                  {t("Approuver", "Approve")}
+                </Bouton>
+              ) : null}
+              {a.emettre ? (
+                <BoutonConfirmation
+                  libelle={t("Émettre la facture", "Issue the invoice")}
+                  variante="primaire"
+                  icone="signature"
+                  question={t(
+                    "Émettre cette facture ? Elle reçoit son numéro définitif et ne pourra plus être modifiée : seule une annulation par avoir sera possible.",
+                    "Issue this invoice? It receives its final number and can no longer be edited: only a cancellation by credit note will be possible.",
+                  )}
+                  libelleConfirmation={t("Oui, émettre", "Yes, issue")}
+                  texteChargement={t("Émission…", "Issuing…")}
+                  action={() =>
+                    poster(
+                      "emettre",
+                      t(
+                        "Facture émise : numéro définitif attribué.",
+                        "Invoice issued: final number assigned.",
+                      ),
+                    )
+                  }
+                />
+              ) : null}
+              {a.marquerEnvoyee ? (
+                <BoutonConfirmation
+                  libelle={t("Marquer comme envoyée", "Mark as sent")}
+                  icone="courrier"
+                  question={t(
+                    "Confirmer que la facture a été envoyée au client ? Cette mention ne s'annule pas.",
+                    "Confirm that the invoice was sent to the client? This mark cannot be undone.",
+                  )}
+                  libelleConfirmation={t("Oui, marquer envoyée", "Yes, mark as sent")}
+                  texteChargement={t("Enregistrement…", "Saving…")}
+                  action={() =>
+                    poster(
+                      "marquer-envoyee",
+                      t("Facture marquée comme envoyée.", "Invoice marked as sent."),
+                    )
+                  }
+                />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {sensibles ? (
+          <div
+            className="mp-actions-groupe mp-actions-groupe--sensible"
+            role="group"
+            aria-labelledby="titre-actions-sensibles"
+          >
+            <p id="titre-actions-sensibles" className="mp-actions-groupe__titre">
+              {t("Actions sensibles", "Sensitive actions")}
+            </p>
+            <div className="mp-barre-actions">
+              {a.rejeter ? (
+                <Bouton
+                  variante="secondaire"
+                  aria-expanded={panneau === "rejet"}
+                  onClick={() => setPanneau(panneau === "rejet" ? null : "rejet")}
+                >
+                  {t("Rejeter", "Reject")}
+                </Bouton>
+              ) : null}
+              {a.avoir ? (
+                <Bouton
+                  variante="secondaire"
+                  aria-expanded={panneau === "avoir"}
+                  onClick={() => setPanneau(panneau === "avoir" ? null : "avoir")}
+                >
+                  {t("Annuler par un avoir", "Cancel by credit note")}
+                </Bouton>
+              ) : null}
+              {a.supprimer ? (
+                <BoutonConfirmation
+                  libelle={t("Supprimer le brouillon", "Delete the draft")}
+                  variante="discret"
+                  icone="corbeille"
+                  question={t(
+                    "Supprimer ce brouillon ? Ses échéances et débours redeviennent facturables.",
+                    "Delete this draft? Its due dates and expenses become invoiceable again.",
+                  )}
+                  libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+                  texteChargement={t("Suppression…", "Deleting…")}
+                  action={() =>
+                    op.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin), {
+                      rafraichir: false,
+                      apres: () => router.push("/facturation"),
+                      messageSpecifique,
+                    })
+                  }
+                />
+              ) : null}
+            </div>
+            {a.avoir || a.rejeter ? (
+              <p className="mp-aide-lecture">
+                {a.avoir
+                  ? t(
+                      "Un avoir annule la facture émise : il se crée d'abord en brouillon.",
+                      "A credit note cancels the issued invoice: it is first created as a draft.",
+                    )
+                  : t(
+                      "Le rejet renvoie la facture en brouillon avec votre motif.",
+                      "Rejecting sends the invoice back to draft with your reason.",
+                    )}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {panneau === "entete" ? (
           <FormulaireEnTete
             facture={f}

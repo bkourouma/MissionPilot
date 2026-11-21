@@ -205,7 +205,10 @@ export default async function PageMonPlanning({
             <h2 id="titre-jours" className="mp-section__titre">
               {t("Jour par jour", "Day by day")}
             </h2>
-            <ol className="mp-jours-semaine">
+            <ol
+              className="mp-jours-semaine"
+              aria-label={t("Les sept jours de la semaine", "The seven days of the week")}
+            >
               {joursDeLaSemaine(p.semaine.debut).map((date) => {
                 const feries = p.feries.filter((f) => f.date === date);
                 const absences = p.absences.filter((a) =>
@@ -226,6 +229,7 @@ export default async function PageMonPlanning({
                       {libelleJourLong(date, langue)}
                       {aujourdhui ? (
                         <span className="mp-jours-semaine__marque">
+                          <Icone nom="horloge" taille={12} />
                           {t("Aujourd'hui", "Today")}
                         </span>
                       ) : null}
@@ -256,9 +260,12 @@ export default async function PageMonPlanning({
               })}
             </ol>
             {aPermission(utilisateur.roles, "conges.demander") ? (
-              <p className="mp-texte-doux">
-                <Link href="/planning/conges">
-                  {t("Demander un congé ou une absence", "Request leave or an absence")}
+              <p>
+                <Link href="/planning/conges" className={classesBouton("secondaire")}>
+                  <Icone nom="calendrier" />
+                  <span>
+                    {t("Demander un congé ou une absence", "Request leave or an absence")}
+                  </span>
                 </Link>
               </p>
             ) : null}
