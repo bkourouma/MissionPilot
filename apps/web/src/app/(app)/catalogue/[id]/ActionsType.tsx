@@ -23,13 +23,14 @@ export function ActionsType({ type }: { type: TypeMission }) {
   const [duplication, setDuplication] = useState(false);
   const etat = useFormulaire<never>();
   const chemin = `/api/types-mission/${encodeURIComponent(type.id)}`;
-  const modifier = (charge: Record<string, unknown>) =>
-    etat.envoyer({ ok: true, charge }, (c) => api.patch(chemin, c));
+  const modifier = (charge: Record<string, unknown>, succes: string) =>
+    etat.envoyer({ ok: true, charge }, (c) => api.patch(chemin, c), { succes });
 
   return (
     <div className="mp-pile">
       <RetourFormulaire
         erreur={etat.erreurGlobale}
+        succes={etat.succes}
         refAlerte={etat.refAlerte}
         titreErreur={t("Action impossible", "Action failed")}
       />
@@ -39,7 +40,9 @@ export function ActionsType({ type }: { type: TypeMission }) {
             icone="succes"
             chargement={etat.enCours}
             texteChargement={t("Validation…", "Approving…")}
-            onClick={() => modifier({ a_valider: false })}
+            onClick={() =>
+              modifier({ a_valider: false }, t("Modèle validé.", "Template approved."))
+            }
           >
             {t("Valider ce modèle", "Approve this template")}
           </Bouton>
@@ -61,10 +64,15 @@ export function ActionsType({ type }: { type: TypeMission }) {
             )}
             libelleConfirmation={t("Oui, archiver", "Yes, archive")}
             texteChargement={t("Archivage…", "Archiving…")}
-            action={() => modifier({ actif: false })}
+            action={() => modifier({ actif: false }, t("Type archivé.", "Type archived."))}
           />
         ) : (
-          <Bouton variante="secondaire" onClick={() => modifier({ actif: true })}>
+          <Bouton
+            variante="secondaire"
+            chargement={etat.enCours}
+            texteChargement={t("Réactivation…", "Reactivating…")}
+            onClick={() => modifier({ actif: true }, t("Type réactivé.", "Type reactivated."))}
+          >
             {t("Réactiver", "Reactivate")}
           </Bouton>
         )}

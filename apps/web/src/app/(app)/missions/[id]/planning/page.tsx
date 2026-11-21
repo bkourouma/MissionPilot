@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
+import { Calcule } from "../../../../../components/ui/Calcule";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
@@ -61,7 +63,7 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
 
   return (
     <div className="mp-pile mp-pile--large">
-      <Carte titre={tr("Planning", "Schedule")}>
+      <Carte titre={tr("Planning", "Schedule")} actions={taches.length > 0 ? <Calcule /> : null}>
         {taches.length === 0 ? (
           <EtatVide
             titre={tr("Aucune tâche à planifier.", "No tasks to schedule.")}
@@ -201,7 +203,9 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
                       : tr("Date à fixer", "Date to be set")}
                   </span>
                 </span>
-                <span>{j.atteint ? tr("Atteint", "Reached") : tr("À venir", "Upcoming")}</span>
+                <BadgeStatut tonalite={j.atteint ? "succes" : "neutre"}>
+                  {j.atteint ? tr("Atteint", "Reached") : tr("À venir", "Upcoming")}
+                </BadgeStatut>
               </li>
             ))}
           </ul>

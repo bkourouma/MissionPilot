@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { creerTraduire, type Langue, type Traduire } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  TYPES_DOCUMENT,
+  type Langue,
+  type Traduire,
+  type TypeDocument,
+} from "@missionpilot/shared";
 import {
   formaterAvancement,
   formaterValeurKpi,
@@ -14,11 +20,19 @@ import {
 import { formaterDate } from "../../lib/format";
 import { obtenirLangue } from "../../lib/i18n/serveur";
 import { libellePeriode } from "../../lib/kpi-libelles";
+import { libelleTypeDocument } from "../../lib/missions-types";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import "./avancement.css";
 
 type Jalons = ContenuAvancement["jalons"];
+
+/** Libellé lisible du type d'un livrable ; un type inconnu reste affiché tel quel. */
+function typeLivrable(type: string, langue: Langue): string {
+  return (TYPES_DOCUMENT as readonly string[]).includes(type)
+    ? libelleTypeDocument(type as TypeDocument, langue)
+    : type;
+}
 
 function ListeJalons({
   titre,
@@ -245,7 +259,7 @@ export async function ChiffresRapport({
             {livrables.elements.map((l, i) => (
               <li key={`${l.nom}-${l.version}-${i}`} className="mp-avc-ligne">
                 <span>{l.nom}</span>
-                <span className="mp-texte-doux">{`${l.type} · ${t("version", "version")} ${l.version}`}</span>
+                <span className="mp-texte-doux">{`${typeLivrable(l.type, langue)} · ${t("version", "version")} ${l.version}`}</span>
               </li>
             ))}
           </ul>

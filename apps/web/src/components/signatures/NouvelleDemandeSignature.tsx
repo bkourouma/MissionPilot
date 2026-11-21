@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useFocusInitial } from "./useFocusInitial";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import type { ObjetSignature } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -63,6 +64,7 @@ export function NouvelleDemandeSignature({
   const [choisis, setChoisis] = useState<string[]>([]);
   const f = useFormulaire<ChampDemandeSignature>();
   const signables = documentsSignables(documents, objet);
+  useFocusInitial(f.refFormulaire, ouvert);
 
   if (!ouvert) {
     return (

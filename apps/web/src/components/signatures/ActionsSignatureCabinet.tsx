@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useFocusInitial } from "./useFocusInitial";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { api } from "../../lib/api";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -49,15 +50,31 @@ export function ActionsSignatureCabinet({
   const { rafraichir } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
-  const bascule = (p: Exclude<Panneau, null>) => setPanneau((c) => (c === p ? null : p));
+  // Le panneau se referme après succès : le message vit ici pour rester annoncé et visible.
+  const [succes, setSucces] = useState<string | null>(null);
+  const bascule = (p: Exclude<Panneau, null>) => {
+    setSucces(null);
+    setPanneau((c) => (c === p ? null : p));
+  };
+  const terminer = (message: string) => {
+    setSucces(message);
+    setPanneau(null);
+  };
 
   async function envoyer(): Promise<boolean> {
     setErreurEnvoi(null);
+    setSucces(null);
     try {
       await api.post(
         cheminApiActionSignature(signatureId, "envoyer"),
         {},
         { redirigerSi401: false },
+      );
+      setSucces(
+        t(
+          "Demande envoyée : les signataires sont invités.",
+          "Request sent: the signatories have been invited.",
+        ),
       );
       rafraichir();
       return true;
@@ -118,11 +135,17 @@ export function ActionsSignatureCabinet({
           <p>{erreurEnvoi}</p>
         </Alerte>
       ) : null}
+      {succes ? (
+        <Alerte tonalite="succes" annonce="status">
+          <p>{succes}</p>
+        </Alerte>
+      ) : null}
       {panneau === "signer" ? (
         <FormulaireSignature
           signatureId={signatureId}
           tfaActive={tfaActive}
           onFin={() => setPanneau(null)}
+          onSucces={terminer}
         />
       ) : null}
       {panneau === "refuser" ? (
@@ -130,6 +153,7 @@ export function ActionsSignatureCabinet({
           signatureId={signatureId}
           action="refuser"
           onFin={() => setPanneau(null)}
+          onSucces={terminer}
         />
       ) : null}
       {panneau === "annuler" ? (
@@ -137,6 +161,7 @@ export function ActionsSignatureCabinet({
           signatureId={signatureId}
           action="annuler"
           onFin={() => setPanneau(null)}
+          onSucces={terminer}
         />
       ) : null}
     </div>
@@ -147,15 +172,18 @@ function FormulaireSignature({
   signatureId,
   tfaActive,
   onFin,
+  onSucces,
 }: {
   signatureId: string;
   tfaActive: boolean;
   onFin: () => void;
+  onSucces: (message: string) => void;
 }) {
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
   const f = useFormulaire<ChampConfirmation>();
   const t = useT();
   const langue = useLangue();
+  useFocusInitial(f.refFormulaire);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -166,12 +194,14 @@ function FormulaireSignature({
           redirigerSi401: false,
         }),
       {
-        succes: t(
-          "Signature enregistrée (simulée, sans valeur juridique).",
-          "Signature saved (simulated, no legal value).",
-        ),
         messageSpecifique: (e) => messageErreurSignature(e, confirmation.facteur, langue),
-        apres: onFin,
+        apres: () =>
+          onSucces(
+            t(
+              "Signature enregistrée (simulée, sans valeur juridique).",
+              "Signature saved (simulated, no legal value).",
+            ),
+          ),
       },
     );
     // Jamais de mot de passe ni de code conservé après un essai.
@@ -237,16 +267,19 @@ function FormulaireMotif({
   signatureId,
   action,
   onFin,
+  onSucces,
 }: {
   signatureId: string;
   action: "refuser" | "annuler";
   onFin: () => void;
+  onSucces: (message: string) => void;
 }) {
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
   const t = useT();
   const langue = useLangue();
   const annulation = action === "annuler";
+  useFocusInitial(f.refFormulaire);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -257,11 +290,13 @@ function FormulaireMotif({
           redirigerSi401: false,
         }),
       {
-        succes: annulation
-          ? t("Demande annulée.", "Request canceled.")
-          : t("Refus enregistré.", "Refusal recorded."),
         messageSpecifique: (e) => messageErreurSignature(e, "totp", langue),
-        apres: onFin,
+        apres: () =>
+          onSucces(
+            annulation
+              ? t("Demande annulée.", "Request canceled.")
+              : t("Refus enregistré.", "Refusal recorded."),
+          ),
       },
     );
   }
@@ -278,7 +313,15 @@ function FormulaireMotif({
           : t("Refuser de signer", "Decline to sign")
       }
     >
-      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        refAlerte={f.refAlerte}
+        titreErreur={
+          annulation
+            ? t("Annulation impossible", "Could not cancel")
+            : t("Refus impossible", "Could not decline")
+        }
+      />
       <ZoneTexte
         libelle={
           annulation

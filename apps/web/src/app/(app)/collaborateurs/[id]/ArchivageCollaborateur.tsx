@@ -12,8 +12,14 @@ export function ArchivageCollaborateur({ collaborateur }: { collaborateur: Colla
   const t = useT();
   const f = useFormulaire<never>();
   const basculer = () =>
-    f.envoyer({ ok: true, charge: { actif: !collaborateur.actif } }, (c) =>
-      api.patch(`/api/collaborateurs/${encodeURIComponent(collaborateur.id)}`, c),
+    f.envoyer(
+      { ok: true, charge: { actif: !collaborateur.actif } },
+      (c) => api.patch(`/api/collaborateurs/${encodeURIComponent(collaborateur.id)}`, c),
+      {
+        succes: collaborateur.actif
+          ? t("Collaborateur archivé.", "Team member archived.")
+          : t("Collaborateur réactivé.", "Team member reactivated."),
+      },
     );
   return (
     <>
@@ -40,6 +46,7 @@ export function ArchivageCollaborateur({ collaborateur }: { collaborateur: Colla
       )}
       <RetourFormulaire
         erreur={f.erreurGlobale}
+        succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur={t("Action impossible", "Action not possible")}
       />
