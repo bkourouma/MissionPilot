@@ -6,6 +6,13 @@ import { GroupeCases } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 
+/** Met le focus sur le premier champ en erreur d'un formulaire (après validation locale). */
+export function focaliserPremiereErreur(formulaire: HTMLElement | null) {
+  formulaire
+    ?.querySelector<HTMLElement>('[aria-invalid="true"] input, [aria-invalid="true"]:not(fieldset)')
+    ?.focus();
+}
+
 /**
  * Saisie d'un contexte de mission, champ par facteur typé (STD-04) : oui/non, nombre, liste
  * déroulante ou cases à cocher. Un champ laissé vide = facteur non renseigné (une règle ne se

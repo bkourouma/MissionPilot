@@ -90,6 +90,10 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
           name="date_fin"
           required
           min={saisie.date_debut || aujourdhui}
+          aide={t(
+            "Identique au premier jour pour une seule journée.",
+            "Same as the first day for a single day.",
+          )}
           value={saisie.date_fin}
           onChange={(e) => maj("date_fin")(e.target.value)}
           erreur={f.erreurs.date_fin}

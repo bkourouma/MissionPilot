@@ -26,6 +26,7 @@ import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { BoutonActionRed } from "./BoutonActionRed";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 const TYPES_LIBRES: RedTypeEvenementNegociation[] = [
   "ouverture",
@@ -58,6 +59,7 @@ export function FormulaireEvenement({
   const t = useT();
   const langue = useLangue();
   const f = useFormulaire<ChampEvenement>();
+  const { refListe, focaliser } = useFocusLignes();
   const [s, setS] = useState<SaisieEvenement>(() => evenementVide(aujourdhui, accord?.id ?? ""));
   const types: RedTypeEvenementNegociation[] = accord
     ? [...TYPES_LIBRES, "paiement", "rupture"]
@@ -218,7 +220,7 @@ export function FormulaireEvenement({
                   <p>{f.erreurs.lignes}</p>
                 </Alerte>
               ) : null}
-              <ul className="mp-red-lignes">
+              <ul ref={refListe} className="mp-red-lignes">
                 {s.lignes.map((l, i) => (
                   <li key={l.cle} className="mp-red-ligne">
                     <Champ
@@ -251,9 +253,10 @@ export function FormulaireEvenement({
                     <Bouton
                       variante="discret"
                       aria-label={t(`Retirer l'échéance ${i + 1}`, `Remove installment ${i + 1}`)}
-                      onClick={() =>
-                        setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }))
-                      }
+                      onClick={() => {
+                        setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }));
+                        focaliser(indexFocusApresRetrait(i, s.lignes.length - 1));
+                      }}
                     >
                       {t("Retirer", "Remove")}
                     </Bouton>
@@ -264,12 +267,13 @@ export function FormulaireEvenement({
                 <Bouton
                   variante="secondaire"
                   disabled={s.lignes.length >= 60}
-                  onClick={() =>
+                  onClick={() => {
                     setS((x) => ({
                       ...x,
                       lignes: [...x.lignes, { cle: nouvelleCleLigne(), date: "", montant: "" }],
-                    }))
-                  }
+                    }));
+                    focaliser(s.lignes.length);
+                  }}
                 >
                   {t("Ajouter une échéance", "Add an installment")}
                 </Bouton>

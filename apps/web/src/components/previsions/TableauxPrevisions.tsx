@@ -1,4 +1,5 @@
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { Calcule } from "../ui/Calcule";
 import { Carte } from "../ui/Carte";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
 import { formaterJours, formaterMontantMineur, formaterPourcentage } from "../../lib/format";
@@ -121,16 +122,37 @@ export async function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevi
 
   return (
     <>
-      <Carte titre={t("Chiffre d'affaires prévu", "Forecast revenue")}>
+      <Carte
+        titre={t("Chiffre d'affaires prévu", "Forecast revenue")}
+        actions={<Calcule />}
+        piedDePage={
+          <p className="mp-texte-doux mp-texte-petit">
+            {t(`Montants en ${r.devise}.`, `Amounts in ${r.devise}.`)}
+          </p>
+        }
+      >
         <Tableau
+          messageVide={t("Aucun mois à afficher.", "No months to display.")}
           legende={t("Chiffre d'affaires prévu par mois", "Forecast revenue by month")}
           lignes={r.mois}
           cleLigne={(l) => l.mois}
           colonnes={colonnesCa}
         />
       </Carte>
-      <Carte titre={t("Charge et capacité", "Workload and capacity")}>
+      <Carte
+        titre={t("Charge et capacité", "Workload and capacity")}
+        actions={<Calcule />}
+        piedDePage={
+          <p className="mp-texte-doux mp-texte-petit">
+            {t(
+              "Jours de travail par mois. L'état compare la charge totale à la capacité (texte et icône, pas seulement la couleur).",
+              "Working days per month. The status compares total workload to capacity (text and icon, not colour alone).",
+            )}
+          </p>
+        }
+      >
         <Tableau
+          messageVide={t("Aucun mois à afficher.", "No months to display.")}
           legende={t(
             "Charge en jours contre capacité, par mois",
             "Workload in days against capacity, by month",
@@ -140,8 +162,20 @@ export async function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevi
           colonnes={colonnesCharge}
         />
       </Carte>
-      <Carte titre={t("Pipeline par étape", "Pipeline by stage")}>
+      <Carte
+        titre={t("Pipeline par étape", "Pipeline by stage")}
+        actions={<Calcule />}
+        piedDePage={
+          <p className="mp-texte-doux mp-texte-petit">
+            {t(
+              `Montants en ${r.devise}. Le montant pondéré applique la probabilité de chaque opportunité.`,
+              `Amounts in ${r.devise}. The weighted amount applies each opportunity's probability.`,
+            )}
+          </p>
+        }
+      >
         <Tableau
+          messageVide={t("Aucune opportunité ouverte.", "No open opportunities.")}
           legende={t("Pipeline ouvert par étape", "Open pipeline by stage")}
           lignes={r.par_etape}
           cleLigne={(e) => e.etape}

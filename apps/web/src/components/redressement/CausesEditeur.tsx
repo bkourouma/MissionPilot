@@ -9,6 +9,7 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { indexFocusApresRetrait, useFocusLignes } from "./useFocusLignes";
 
 /**
  * Édition des causes d'un brouillon : libellé, description, domaine et confiance (libellé fixe,
@@ -27,6 +28,7 @@ export function CausesEditeur({
 }) {
   const t = useT();
   const langue = useLangue();
+  const { refListe, focaliser } = useFocusLignes();
   const optionsDomaines = RED_DOMAINES.map((d) => ({
     valeur: d,
     libelle: libelleDomaine(d, langue),
@@ -36,6 +38,7 @@ export function CausesEditeur({
   return (
     <div className="mp-pile">
       <ul
+        ref={refListe}
         className="mp-diag-liste"
         aria-label={t("Causes racines à modifier", "Root causes to edit")}
       >
@@ -79,7 +82,10 @@ export function CausesEditeur({
               <Bouton
                 variante="discret"
                 disabled={desactive || causes.length <= 1}
-                onClick={() => onChange(causes.filter((_, k) => k !== i))}
+                onClick={() => {
+                  onChange(causes.filter((_, k) => k !== i));
+                  focaliser(indexFocusApresRetrait(i, causes.length - 1));
+                }}
                 aria-label={t(`Retirer la cause ${i + 1}`, `Remove cause ${i + 1}`)}
               >
                 {t("Retirer", "Remove")}
@@ -92,7 +98,10 @@ export function CausesEditeur({
         <Bouton
           variante="secondaire"
           disabled={desactive || causes.length >= RED_CAUSES_MAX}
-          onClick={() => onChange([...causes, causeVide()])}
+          onClick={() => {
+            onChange([...causes, causeVide()]);
+            focaliser(causes.length);
+          }}
         >
           {t("Ajouter une cause", "Add a cause")}
         </Bouton>

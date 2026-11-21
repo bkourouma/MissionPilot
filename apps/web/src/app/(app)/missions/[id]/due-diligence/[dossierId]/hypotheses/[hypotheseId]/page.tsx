@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeVerdict } from "../../../../../../../../components/due-diligence/BadgesDd";
 import { CorrectionHypothese } from "../../../../../../../../components/due-diligence/FormulairesHypothese";
@@ -100,9 +101,9 @@ export default async function PageHypotheseDd({
     <>
       <section className="mp-dd-pile" aria-labelledby="titre-hypothese">
         <p className="mp-texte-petit">
-          <a href={hrefEcranDossier(id, dossierId, "hypotheses")}>
+          <Link href={hrefEcranDossier(id, dossierId, "hypotheses")}>
             {t("Toutes les hypothèses", "All hypotheses")}
-          </a>
+          </Link>
         </p>
         <h3 id="titre-hypothese" className="mp-section__titre">
           {h.libelle}

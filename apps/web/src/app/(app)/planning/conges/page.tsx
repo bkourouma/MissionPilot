@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { aPermission } from "@missionpilot/shared";
+import { classesBouton } from "../../../../components/ui/Bouton";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
+import { Icone } from "../../../../components/ui/Icone";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { obtenirLangue } from "../../../../lib/i18n/serveur";
@@ -63,7 +65,7 @@ export default async function PageMesConges({
           "Request an absence, track its approval, cancel it before it starts. Only approved absences reduce your capacity.",
         )}
       />
-      <Carte titre={t("Nouvelle demande", "New request")}>
+      <Carte id="nouvelle-demande" titre={t("Nouvelle demande", "New request")}>
         <DemandeAbsence aujourdhui={aujourdhui} />
       </Carte>
 
@@ -84,6 +86,12 @@ export default async function PageMesConges({
           <EtatVide
             titre={t("Aucune demande d'absence.", "No absence requests.")}
             icone="calendrier"
+            action={
+              <a href="#nouvelle-demande" className={classesBouton("secondaire")}>
+                <Icone nom="calendrier" />
+                <span>{t("Faire une demande", "Make a request")}</span>
+              </a>
+            }
           >
             <p>
               {t(

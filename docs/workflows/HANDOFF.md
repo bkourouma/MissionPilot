@@ -9,49 +9,16 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `feat/application-bilingue` — 2026-11-13 (interface français / anglais)
+## Branche `orch/2026-11-21-ux` — 2026-11-21 (refonte ergonomique UI/UX, sans changement fonctionnel)
 
-Copie principale `D:\APP\MissionPilot`, base `main` @ `e8ea7e6` (PR n° 26 fusionnée). Upstream retiré
-(`git branch --unset-upstream`) : pousser avec `git push -u origin feat/application-bilingue`, jamais vers `main`.
-
-**Demande.** « Rendre l'application bilingue » : français (référence, par défaut) et anglais.
+Base `main` @ `4490bbb` (PR n° 27 bilingue fusionnée). Six lots en parallèle, 252 fichiers web, aucune modification d'API, de `packages/*`, de route ni de règle métier.
 
 **Fait.**
-- Socle (commit `4b4a12e`) : ADR-014, `packages/shared/src/langue.ts` (cookie `mp_langue`, en-tête `x-mp-langue`,
-  `resoudreLangue`, `creerTraduire`, `libelleRole`), `useT`/`useLangue`/`<T>` (`components/i18n/`), `obtenirT`/`obtenirLangue`
-  (`lib/i18n/serveur.ts`), sélecteur FR/EN (en-tête, connexion, portail, console plateforme), formats `fr-FR`/`en-GB`,
-  gestionnaire d'erreurs de l'API traduit (`apps/api/src/i18n/`).
-- Traduction de ~1 190 fichiers web par 20 territoires (`t(fr, en)`, dernier paramètre `langue` des libs, `generateMetadata`,
-  composants serveur passés `async`), table anglaise de 1 402 messages d'erreur de l'API + ~200 motifs, passe d'intégration
-  (libellés croisés, `motifEn` des reconfirmations, indicateurs du tableau de bord, brief en anglais `libelleElementBrief`).
-- Saisie des nombres : `normaliserNombreSaisi` / `lireNombre(v, langue)` (`lib/saisie.ts`) ; en anglais la virgule n'est
-  admise que comme séparateur de milliers (« 150,000 » = 150 000, « 2,5 » refusé), jamais lue en silence comme une décimale.
-  `langueNavigateur()` déplacé dans `lib/langue-navigateur.ts` (réexporté par `lib/api.ts`).
-- Docs : AGENTS.md (règle Langue), CODING_STANDARDS §6, review-checklist (interface bilingue, recherche n° 29 → `layout.tsx:17/:52`).
-- Vérifié : typecheck web/API/shared, eslint `apps/web/src`, `pnpm format`, web 171 fichiers / 2 631 tests, shared 541,
-  API `i18n-messages`, `auth`, `import-temps` ; recette HTTP authentifiée (associé Lagune) de 27 pages en anglais (titres,
-  `lang`, contenus) et en français ; erreur d'API anglaise avec `x-mp-langue: en`. Contrôle par script : aucun composant
-  serveur `async` ni `obtenirT` atteignable depuis un fichier `"use client"`.
+- Lot 0 (fondations) : coque (rail mémorisé, tiroir mobile, lien d'évitement, `AnnonceNavigation`), `Bouton`/`Champ`/`Select`/`ZoneTexte`/`CaseACocher`/`Alerte`/`Carte`, `Tableau` (tri, en-tête fixe, ligne cliquable `mp-lien-etendu`), `EtatVide`/`EtatErreur`, `Pagination`, `FilAriane`, accueil réordonné, `BoutonConfirmation` (`varianteConfirmation`), `.mp-calcule` globale. Nouvelles feuilles `socle-formulaires.css` et `socle-donnees.css`, chargées en dernier dans `app/layout.tsx`.
+- Lots 1 à 5 : confirmations (plus de `window.confirm`), succès annoncés, focus, aides de saisie, états vides/erreur, légendes, grille de temps au clavier (`navigationGrille.ts`), onglets de fiche d'appel d'offres, filtre de la console plateforme, portail.
+- Vérifié : typecheck, eslint, prettier, suite web 185 fichiers / 2 730 tests, `next build` (vérificateur, sur le lot 0 combiné). **Pas de recette visuelle en navigateur** (Docker/PostgreSQL arrêtés pendant la session).
 
-**État.** Commits `4b4a12e` (socle), `911da1b` (traduction), `cb78ede` (test daté) poussés ; **PR n° 27 ouverte**
-(https://github.com/bkourouma/MissionPilot/pull/27), CI en cours au 2026-11-14. Suite API locale : 3 856 / 3 863 ; 6 échecs
-de charge (délais, réveil du worker) qui passent fichier seul, et `feuilles-temps.test.ts` « discipline de saisie », qui
-échouait depuis le 2026-11-08 quel que soit le code (horodatages réels de la soumission et de la création du collaborateur) :
-corrigé par `cb78ede`.
-
-**Reste.** Fusion de la PR n° 27 = accord de l'utilisateur (fusionner dans `main` déploie). Non vérifié à l'écran (le volet du
-navigateur ne dessinait pas) : sélecteur après connexion, écrans du portail client et de la console plateforme en anglais.
-
-**Pièges et limites.**
-- Restent en français par nature (données) : contenus stockés ou produits par l'API (libellés de lignes de budget, grades et
-  noms saisis, catalogue des agents, textes des sources du brief hors gabarits connus, rapports, notifications, e-mails).
-- Ne jamais utiliser `langueNavigateur()` comme défaut d'un texte RENDU (désaccord d'hydratation) : passer `langue`.
-- `.map(fonctionAvecLangue)` passe l'index comme langue : écrire `.map((x) => f(x, langue))`.
-- Nouveau message d'erreur de l'API : l'ajouter à `apps/api/src/i18n/messages-en-tables.ts` (le test `i18n-messages`
-  vérifie que chaque clé existe encore dans le code).
-- `pnpm lint` échoue sur `apps/web/.impeccable/**` (scripts locaux ignorés par git, préexistant) ; `eslint src` est propre.
-- Recette locale : `tsx watch` de `pnpm dev` peut rester muet sous le volet d'aperçu ; lancer l'API par `tsx src/server.ts`
-  (`.claude/launch.json` local, non commité).
+**Reste.** Recette visuelle sur le serveur après déploiement (accueil, rail, tiroir mobile 375 px, grille de temps, tableaux triables). À nettoyer plus tard : règles dupliquées de `referentiels.css` (`.mp-onglets`, `.mp-etat-vide`, `.mp-entete-page`, `.mp-filtre-segments`, `.mp-confirmation`, `.mp-case`, `.mp-zone-texte`) désormais surchargées par les `socle-*.css` ; tri mobile (en-tête caché sous 640 px) ; zones non relues faute de budget (agents, services candidats, redressement rares). Le sélecteur de langue existe en deux exemplaires dans le DOM (un seul visible) : à garder en tête pour les tests e2e.
 
 ---
 

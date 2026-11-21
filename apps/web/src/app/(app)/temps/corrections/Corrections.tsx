@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
@@ -115,6 +115,10 @@ export function DemandeCorrection({
           value={saisie.date}
           onChange={(e) => setSaisie((s) => ({ ...s, date: e.target.value, cible: "" }))}
           erreur={f.erreurs.date}
+          aide={t(
+            "Un jour passé dont le temps est validé ou clôturé.",
+            "A past day whose time is approved or closed.",
+          )}
         />
         <Select
           libelle={t("Tâche ou activité", "Task or activity")}
@@ -155,6 +159,10 @@ export function DemandeCorrection({
         value={saisie.motif}
         onChange={(e) => setSaisie((s) => ({ ...s, motif: e.target.value }))}
         erreur={f.erreurs.motif}
+        aide={t(
+          "Expliquez pourquoi ce temps doit changer : le motif est conservé dans l'historique.",
+          "Explain why this time must change: the reason is kept in the history.",
+        )}
       />
       <div className="mp-actions-formulaire">
         <Bouton
@@ -175,9 +183,18 @@ export function DecisionCorrection({ id, libelle }: { id: string; libelle: strin
   const t = useT();
   const langue = useLangue();
   const [rejet, setRejet] = useState(false);
+  const [aConfirmer, setAConfirmer] = useState(false);
+  const [rendreFocus, setRendreFocus] = useState(false);
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
+  const refConfirmer = useRef<HTMLButtonElement>(null);
+  const refValider = useRef<HTMLButtonElement>(null);
   const base = `/api/temps/corrections/${encodeURIComponent(id)}`;
+
+  useEffect(() => {
+    if (aConfirmer) refConfirmer.current?.focus();
+    else if (rendreFocus) refValider.current?.focus();
+  }, [aConfirmer, rendreFocus]);
 
   async function rejeter(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -211,31 +228,67 @@ export function DecisionCorrection({ id, libelle }: { id: string; libelle: strin
               chargement={f.enCours}
               texteChargement={t("Rejet…", "Rejecting…")}
             >
-              {t("Rejeter", "Reject")}
+              {t("Rejeter la correction", "Reject the correction")}
             </Bouton>
             <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setRejet(false)}>
               {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
+      ) : aConfirmer ? (
+        <div
+          className="mp-confirmation-decision"
+          role="group"
+          aria-label={t(`Confirmer la validation : ${libelle}`, `Confirm the approval: ${libelle}`)}
+        >
+          <p className="mp-confirmation-decision__question">
+            {t(
+              "Valider cette correction ? Le réalisé du collaborateur sera mis à jour et la décision restera tracée.",
+              "Approve this correction? The employee's actuals will be updated and the decision stays tracked.",
+            )}
+          </p>
+          <div className="mp-barre-actions">
+            <Bouton
+              ref={refConfirmer}
+              icone="succes"
+              chargement={f.enCours}
+              texteChargement={t("Validation…", "Approving…")}
+              onClick={() =>
+                f.envoyer({ ok: true, charge: null }, () => api.post(`${base}/valider`), {
+                  succes: t(
+                    "Correction validée : le réalisé est mis à jour.",
+                    "Correction approved: actuals are updated.",
+                  ),
+                })
+              }
+            >
+              {t("Oui, valider", "Yes, approve")}
+            </Bouton>
+            <Bouton
+              variante="secondaire"
+              disabled={f.enCours}
+              onClick={() => {
+                setRendreFocus(true);
+                setAConfirmer(false);
+              }}
+            >
+              {t("Annuler", "Cancel")}
+            </Bouton>
+          </div>
+        </div>
       ) : (
         <div className="mp-barre-actions">
           <Bouton
+            ref={refValider}
             icone="succes"
-            chargement={f.enCours}
-            texteChargement={t("Validation…", "Approving…")}
             aria-label={t(
               `Valider la correction : ${libelle}`,
               `Approve the correction: ${libelle}`,
             )}
-            onClick={() =>
-              f.envoyer({ ok: true, charge: null }, () => api.post(`${base}/valider`), {
-                succes: t(
-                  "Correction validée : le réalisé est mis à jour.",
-                  "Correction approved: actuals are updated.",
-                ),
-              })
-            }
+            onClick={() => {
+              setRendreFocus(false);
+              setAConfirmer(true);
+            }}
           >
             {t("Valider", "Approve")}
           </Bouton>

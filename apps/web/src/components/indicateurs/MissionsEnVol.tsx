@@ -3,7 +3,9 @@ import { formaterJours, formaterPourcentage } from "../../lib/format";
 import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { statutEcart, type ElementMission } from "../../lib/indicateurs";
 import { BadgeStatut } from "../ui/BadgeStatut";
+import { classesBouton } from "../ui/Bouton";
 import { Calcule } from "../ui/Calcule";
+import { EtatVide } from "../ui/EtatListe";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
 import { Trajectoire } from "../ui/Trajectoire";
 import "./missions-en-vol.css";
@@ -24,9 +26,12 @@ function parDerive(a: ElementMission, b: ElementMission): number {
 export async function MissionsEnVol({
   elements,
   limite = 8,
+  hrefPeriode = "/indicateurs",
 }: {
   elements: readonly ElementMission[];
   limite?: number;
+  /** Écran détaillé (changer de période ou de niveau), proposé quand rien n'est en vol. */
+  hrefPeriode?: string;
 }) {
   const t = await obtenirT();
   const langue = await obtenirLangue();
@@ -88,19 +93,34 @@ export async function MissionsEnVol({
         </h3>
         <Calcule />
       </div>
-      <Tableau
-        legende={t(
-          "Missions en vol, classées par écart de cap",
-          "Engagements in flight, ranked by course variance",
-        )}
-        colonnes={colonnes}
-        lignes={lignes}
-        cleLigne={(m) => m.mission_id}
-        messageVide={t(
-          "Aucune mission en cours sur la période.",
-          "No engagement in progress during the period.",
-        )}
-      />
+      {lignes.length === 0 ? (
+        <EtatVide
+          titre={t("Aucune mission en vol sur la période", "No engagement in flight this period")}
+          icone="dossier"
+          action={
+            <Link href={hrefPeriode} className={classesBouton("secondaire")}>
+              {t("Changer de période", "Change the period")}
+            </Link>
+          }
+        >
+          <p>
+            {t(
+              "Les missions actives de la période apparaissent ici, classées par écart de cap. Élargissez la période pour en voir.",
+              "Active engagements of the period appear here, ranked by course variance. Widen the period to see some.",
+            )}
+          </p>
+        </EtatVide>
+      ) : (
+        <Tableau
+          legende={t(
+            "Missions en vol, classées par écart de cap",
+            "Engagements in flight, ranked by course variance",
+          )}
+          colonnes={colonnes}
+          lignes={lignes}
+          cleLigne={(m) => m.mission_id}
+        />
+      )}
       {elements.length > lignes.length ? (
         <p className="mp-texte-doux">
           {t(

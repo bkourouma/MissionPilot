@@ -27,8 +27,14 @@ export function DecisionEtat({
   const langue = useLangue();
   const [motif, setMotif] = useState("");
   const f = useFormulaire<ChampDecision>();
+  const [encours, setEncours] = useState<"accepte" | "rejete" | null>(null);
   const url = `${cheminApiDossier(clientId)}/etats-financiers/${encodeURIComponent(etatId)}/decision`;
-  const decider = (decision: "accepte" | "rejete") =>
+  // `encours` n'a de sens que tant que le formulaire est occupé (envoi puis rafraîchissement).
+  const decider = (decision: "accepte" | "rejete") => {
+    setEncours(decision);
+    return envoyerDecision(decision);
+  };
+  const envoyerDecision = (decision: "accepte" | "rejete") =>
     f.envoyer(
       validerDecisionEtat(decision, motif, controlesOk, langue),
       (charge) => api.post(url, charge),
@@ -72,7 +78,8 @@ export function DecisionEtat({
       />
       <div className="mp-barre-actions">
         <Bouton
-          chargement={f.enCours}
+          chargement={f.enCours && encours === "accepte"}
+          disabled={f.enCours && encours !== "accepte"}
           texteChargement={t("Enregistrement…", "Saving…")}
           onClick={() => void decider("accepte")}
         >
@@ -80,7 +87,13 @@ export function DecisionEtat({
             ? t("Accepter", "Accept")
             : t("Accepter malgré les écarts", "Accept despite the gaps")}
         </Bouton>
-        <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("rejete")}>
+        <Bouton
+          variante="danger"
+          chargement={f.enCours && encours === "rejete"}
+          disabled={f.enCours && encours !== "rejete"}
+          texteChargement={t("Rejet…", "Rejecting…")}
+          onClick={() => void decider("rejete")}
+        >
           {t("Rejeter", "Reject")}
         </Bouton>
       </div>

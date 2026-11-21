@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { useT } from "../i18n/FournisseurLangue";
 
@@ -15,6 +17,7 @@ export interface ExporterDossierPreuveProps {
  */
 export function ExporterDossierPreuve({ contenu, nomFichier }: ExporterDossierPreuveProps) {
   const t = useT();
+  const [exporte, setExporte] = useState(false);
   function exporter() {
     const blob = new Blob([contenu], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -26,10 +29,23 @@ export function ExporterDossierPreuve({ contenu, nomFichier }: ExporterDossierPr
     lien.click();
     lien.remove();
     URL.revokeObjectURL(url);
+    setExporte(true);
   }
   return (
-    <Bouton variante="secondaire" icone="telechargement" onClick={exporter}>
-      {t("Exporter le dossier de preuve", "Export the evidence file")}
-    </Bouton>
+    <>
+      <Bouton variante="secondaire" icone="telechargement" onClick={exporter}>
+        {t("Exporter le dossier de preuve", "Export the evidence file")}
+      </Bouton>
+      {exporte ? (
+        <Alerte tonalite="succes" annonce="status">
+          <p>
+            {t(
+              `Dossier de preuve exporté : fichier JSON « ${nomFichier} » téléchargé.`,
+              `Evidence file exported: JSON file "${nomFichier}" downloaded.`,
+            )}
+          </p>
+        </Alerte>
+      ) : null}
+    </>
   );
 }

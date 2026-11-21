@@ -243,3 +243,8 @@
     background: CanvasText;
   }
 }
+
+/* Cible d'ancre du résultat d'une comparaison : sous l'en-tête fixe du téléphone. */
+.mp-ancre-resultat {
+  scroll-margin-top: calc(var(--mp-esp-7) + var(--mp-esp-3));
+}

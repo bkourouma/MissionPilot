@@ -114,7 +114,7 @@ export default async function PageDossiers({
           colonnes={[
             {
               cle: "raison_sociale",
-              entete: "Client",
+              entete: t("Client", "Client"),
               rendu: (d) => (
                 <Link href={`/dossiers/${d.id}`} className="mp-lien-ligne">
                   {d.raison_sociale}

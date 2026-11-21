@@ -240,6 +240,7 @@
 }
 
 .mp-portail-partages__element {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--mp-esp-3);
@@ -248,6 +249,21 @@
 
 .mp-portail-partages__element a {
   font-weight: 600;
+}
+/* Toute la ligne est cliquable (cible tactile large) ; le focus se voit sur la ligne. */
+.mp-portail-partages__element a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.mp-portail-partages__element:has(a:focus-visible) {
+  outline: 2px solid var(--mp-focus, var(--mp-primaire));
+  outline-offset: 2px;
+  border-radius: var(--mp-rayon);
+}
+.mp-portail-partages__element:has(a):hover {
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
 }
 
 /* Fiche d'une mission dans la liste. */

@@ -4,6 +4,7 @@ import type { RedDossierResume } from "@missionpilot/shared";
 import "../../../components/redressement/redressement.css";
 import { Voyant, NiveauAlerte } from "../../../components/redressement/Voyant";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../components/ui/Bouton";
 import { Champ } from "../../../components/ui/Champ";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
@@ -46,6 +47,7 @@ export default async function PagePortefeuilleRedressement({
   const langue = await obtenirLangue();
   const filtres = lireFiltresPortefeuille(await searchParams);
   const r = await chargerServeur<PageCurseur<RedDossierResume>>(cheminDossiersRed(filtres));
+  const filtresActifs = Boolean(filtres.q || filtres.statut || filtres.secteur);
 
   return (
     <div className="mp-page">
@@ -85,9 +87,16 @@ export default async function PagePortefeuilleRedressement({
               options={optionsSecteurs(langue)}
             />
           </div>
-          <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            {t("Filtrer", "Filter")}
-          </button>
+          <div className="mp-actions-formulaire">
+            <button type="submit" className="mp-bouton mp-bouton--secondaire">
+              {t("Filtrer", "Filter")}
+            </button>
+            {filtresActifs ? (
+              <Link href="/redressement" className={classesBouton("discret")}>
+                {t("Réinitialiser les filtres", "Reset filters")}
+              </Link>
+            ) : null}
+          </div>
         </form>
 
         {!r.ok ? (
@@ -100,17 +109,41 @@ export default async function PagePortefeuilleRedressement({
             hrefReessayer={hrefPortefeuille(filtres)}
           />
         ) : r.donnees.elements.length === 0 ? (
-          <EtatVide
-            titre={t("Aucun dossier de redressement.", "No turnaround file.")}
-            icone="attention"
-          >
-            <p>
-              {t(
-                "Aucun dossier de redressement. Ouvrez-en un depuis l'onglet « Redressement » d'une mission.",
-                'No turnaround file. Open one from the "Turnaround" tab of an engagement.',
-              )}
-            </p>
-          </EtatVide>
+          filtresActifs ? (
+            <EtatVide
+              titre={t("Aucun dossier ne correspond.", "No file matches.")}
+              icone="attention"
+              action={
+                <Link href="/redressement" className={classesBouton("secondaire")}>
+                  {t("Réinitialiser les filtres", "Reset filters")}
+                </Link>
+              }
+            >
+              <p>
+                {t(
+                  "Modifiez la recherche, le statut ou le secteur pour élargir la liste.",
+                  "Change the search, status or sector to widen the list.",
+                )}
+              </p>
+            </EtatVide>
+          ) : (
+            <EtatVide
+              titre={t("Aucun dossier de redressement.", "No turnaround file.")}
+              icone="attention"
+              action={
+                <Link href="/missions" className={classesBouton("secondaire")}>
+                  {t("Voir les missions", "View engagements")}
+                </Link>
+              }
+            >
+              <p>
+                {t(
+                  "Ouvrez-en un depuis l'onglet « Redressement » d'une mission.",
+                  'Open one from the "Turnaround" tab of an engagement.',
+                )}
+              </p>
+            </EtatVide>
+          )
         ) : (
           <Tableau
             legende={t("Dossiers de redressement", "Turnaround files")}

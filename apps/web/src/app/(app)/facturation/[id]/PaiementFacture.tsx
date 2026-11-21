@@ -45,7 +45,7 @@ export async function PaiementFacture({
         ) : null
       }
     >
-      <div className="mp-pile">
+      <div className="mp-pile mp-chiffres">
         {p.statut_paiement ? (
           <ul className="mp-totaux" aria-label={t("Situation de paiement", "Payment status")}>
             <li className="mp-totaux__element">

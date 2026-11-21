@@ -412,7 +412,7 @@ export function Replanification({
   }
 
   async function appliquer() {
-    await f.envoyer(validation, (c) => api.post<ResultatReplanification>(chemin, c), {
+    return f.envoyer(validation, (c) => api.post<ResultatReplanification>(chemin, c), {
       succes: t(
         "Re-planification appliquée : les personnes concernées sont prévenues.",
         "Rescheduling applied: the people concerned have been notified.",
@@ -483,14 +483,18 @@ export function Replanification({
       {resultat ? <ResultatReplanif r={resultat} /> : null}
       {apercu && apercu.taches.length > 0 ? (
         <div className="mp-actions-formulaire">
-          <Bouton
+          <BoutonConfirmation
+            variante="primaire"
             icone="calendrier"
-            chargement={f.enCours}
+            libelle={t("Appliquer et prévenir les personnes", "Apply and notify the people")}
+            question={t(
+              `Appliquer la re-planification ? Les dates changent et ${apercu.personnes.length} personne(s) sont prévenues.`,
+              `Apply the rescheduling? The dates change and ${apercu.personnes.length} people are notified.`,
+            )}
+            libelleConfirmation={t("Oui, appliquer", "Yes, apply")}
             texteChargement={t("Application…", "Applying…")}
-            onClick={appliquer}
-          >
-            {t("Appliquer et prévenir les personnes", "Apply and notify the people")}
-          </Bouton>
+            action={appliquer}
+          />
         </div>
       ) : null}
     </div>

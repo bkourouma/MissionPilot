@@ -24,6 +24,7 @@ import {
   type SaisieCorrectionPoint,
   type SaisiePoint,
 } from "../../lib/due-diligence-saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -163,8 +164,8 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
     );
   }
 
-  async function retirer() {
-    await f.envoyer(
+  async function retirer(): Promise<boolean> {
+    return f.envoyer(
       validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsPoint(point.id), {
@@ -242,9 +243,23 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
         >
           {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
-        <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-          {t("Retirer ce point", "Remove this item")}
-        </Bouton>
+        {validerRetrait(s.motif, true, langue).ok ? (
+          <BoutonConfirmation
+            libelle={t("Retirer ce point", "Remove this item")}
+            question={t(
+              "Retirer ce point ? Son assertion sera abandonnée ; le motif est conservé dans l'historique.",
+              "Remove this item? Its statement will be abandoned; the reason is kept in the history.",
+            )}
+            libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+            texteChargement={t("Retrait…", "Removing…")}
+            variante="danger"
+            action={retirer}
+          />
+        ) : (
+          <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
+            {t("Retirer ce point", "Remove this item")}
+          </Bouton>
+        )}
       </div>
     </form>
   );

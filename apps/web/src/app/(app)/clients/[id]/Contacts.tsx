@@ -129,7 +129,7 @@ function FormulaireContact({
         >
           {libelleEnvoi}
         </Bouton>
-        <Bouton variante="discret" onClick={onAnnuler}>
+        <Bouton variante="discret" onClick={onAnnuler} disabled={f.enCours}>
           {t("Annuler", "Cancel")}
         </Bouton>
       </div>

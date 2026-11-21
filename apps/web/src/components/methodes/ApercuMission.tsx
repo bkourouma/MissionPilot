@@ -13,7 +13,7 @@ import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
-import { ChampsContexte } from "./ChampsContexte";
+import { ChampsContexte, focaliserPremiereErreur } from "./ChampsContexte";
 import { VueApercu } from "./VueApercu";
 
 /**
@@ -39,13 +39,17 @@ export function ApercuMission({
   const [enCours, setEnCours] = useState(false);
   const refResultat = useRef<HTMLDivElement>(null);
   const refErreur = useRef<HTMLDivElement>(null);
+  const refFormulaire = useRef<HTMLFormElement>(null);
 
   async function generer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErreur(null);
     const corps = construireCorpsApercu(contexte, facteurs, langue);
     setErreursChamps(corps.ok ? {} : corps.erreurs);
-    if (!corps.ok) return;
+    if (!corps.ok) {
+      setTimeout(() => focaliserPremiereErreur(refFormulaire.current), 0);
+      return;
+    }
     setEnCours(true);
     try {
       const r = await api.post<Apercu>(`/api/methodes/versions/${versionId}/apercu`, corps.charge);
@@ -65,7 +69,7 @@ export function ApercuMission({
       <Alerte tonalite="info" annonce="aucune">
         <p>{mention}</p>
       </Alerte>
-      <form className="mp-pile" noValidate onSubmit={generer}>
+      <form ref={refFormulaire} className="mp-pile" noValidate onSubmit={generer}>
         <Carte titre={t("Contexte de la mission type", "Context of the sample engagement")}>
           <p className="mp-texte-doux">
             {t(

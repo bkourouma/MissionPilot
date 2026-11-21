@@ -83,6 +83,14 @@ export default async function PageSignauxDd({
           "Bibliothèque des signaux par secteur et pays, maintenue par les experts du cabinet. Le moteur propose à chaque dossier ceux qui s'appliquent.",
           "Library of signals by sector and country, maintained by the firm's experts. The engine offers each file the ones that apply.",
         )}
+        actions={
+          droits.gererReferentiel ? (
+            <a href="#nouveau-signal" className={classesBouton("primaire")}>
+              <Icone nom="plus" />
+              <span>{t("Nouveau signal", "New signal")}</span>
+            </a>
+          ) : undefined
+        }
       />
       {taxonomies.erreur ? (
         <Alerte
@@ -147,6 +155,11 @@ export default async function PageSignauxDd({
             <Icone nom="recherche" />
             <span>{t("Filtrer", "Filter")}</span>
           </button>
+          {filtre ? (
+            <a href={hrefSignaux} className={classesBouton("discret")}>
+              {t("Effacer les filtres", "Clear filters")}
+            </a>
+          ) : null}
         </div>
       </form>
 
@@ -249,7 +262,7 @@ export default async function PageSignauxDd({
       )}
 
       {droits.gererReferentiel ? (
-        <Carte titre={t("Nouveau signal", "New signal")}>
+        <Carte titre={t("Nouveau signal", "New signal")} id="nouveau-signal">
           <FormulaireSignal
             secteurs={taxonomies.secteurs}
             filieres={taxonomies.filieres}

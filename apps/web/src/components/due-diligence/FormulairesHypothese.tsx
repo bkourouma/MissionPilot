@@ -17,6 +17,7 @@ import {
   type SaisieCorrectionHypothese,
   type SaisieHypothese,
 } from "../../lib/due-diligence-saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -163,8 +164,8 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
     );
   }
 
-  async function retirer() {
-    await f.envoyer(
+  async function retirer(): Promise<boolean> {
+    return f.envoyer(
       validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsHypothese(hypothese.id), {
@@ -237,9 +238,23 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
         >
           {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
-        <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-          {t("Retirer cette hypothèse", "Remove this hypothesis")}
-        </Bouton>
+        {validerRetrait(s.motif, true, langue).ok ? (
+          <BoutonConfirmation
+            libelle={t("Retirer cette hypothèse", "Remove this hypothesis")}
+            question={t(
+              "Retirer cette hypothèse de l'arbre ? Le motif est conservé dans l'historique.",
+              "Remove this hypothesis from the tree? The reason is kept in the history.",
+            )}
+            libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+            texteChargement={t("Retrait…", "Removing…")}
+            variante="danger"
+            action={retirer}
+          />
+        ) : (
+          <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
+            {t("Retirer cette hypothèse", "Remove this hypothesis")}
+          </Bouton>
+        )}
       </div>
     </form>
   );

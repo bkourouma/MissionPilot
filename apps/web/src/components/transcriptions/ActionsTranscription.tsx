@@ -233,6 +233,11 @@ function FormulaireRejet({
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
         erreur={f.erreurs.motif}
+        aide={t(
+          "Obligatoire : expliquez brièvement pourquoi le texte est rejeté.",
+          "Required: briefly explain why the text is rejected.",
+        )}
+        autoFocus
       />
       <div className="mp-actions-formulaire">
         <Bouton

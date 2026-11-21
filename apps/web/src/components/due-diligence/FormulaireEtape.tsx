@@ -20,6 +20,7 @@ import {
   type SaisieEtape,
 } from "../../lib/due-diligence-saisie";
 import { joindreListe } from "../../lib/saisie";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
@@ -89,9 +90,9 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
     );
   }
 
-  async function retirer() {
-    if (!etape) return;
-    await f.envoyer(
+  async function retirer(): Promise<boolean> {
+    if (!etape) return false;
+    return f.envoyer(
       validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<ReponseEcriture>(cheminVersionsEtape(etape.id), {
@@ -211,9 +212,23 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
             : t("Ajouter l'étape", "Add the step")}
         </Bouton>
         {correction ? (
-          <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-            {t("Retirer cette étape", "Remove this step")}
-          </Bouton>
+          validerRetrait(s.motif, true, langue).ok ? (
+            <BoutonConfirmation
+              libelle={t("Retirer cette étape", "Remove this step")}
+              question={t(
+                "Retirer cette étape de la chaîne ? Le motif est conservé dans l'historique.",
+                "Remove this step from the chain? The reason is kept in the history.",
+              )}
+              libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+              texteChargement={t("Retrait…", "Removing…")}
+              variante="danger"
+              action={retirer}
+            />
+          ) : (
+            <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
+              {t("Retirer cette étape", "Remove this step")}
+            </Bouton>
+          )
         ) : null}
       </div>
     </form>

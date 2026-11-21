@@ -1,18 +1,26 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CarteBriefAccueil, CarteBriefIndisponible } from "../../components/brief/BriefDuJour";
-import { libellesRoles } from "../../components/shell/CadreApplication";
-import { BadgeStatut } from "../../components/ui/BadgeStatut";
-import { Carte } from "../../components/ui/Carte";
-import { Icone } from "../../components/ui/Icone";
-import { aPermission } from "@missionpilot/shared";
-import {
-  GrilleIndicateurs,
-  ListeAlertesDerive,
-} from "../../components/indicateurs/GrilleIndicateurs";
+import "../../components/indicateurs/tableau-de-bord.css";
+import { CarteBriefAccueil } from "../../components/brief/BriefDuJour";
+import { ListeAlertesDerive } from "../../components/indicateurs/GrilleIndicateurs";
+import { ListeIndicateurs } from "../../components/indicateurs/ListeIndicateurs";
 import { MissionsEnVol } from "../../components/indicateurs/MissionsEnVol";
+import { ModulesAccueil } from "../../components/indicateurs/ModulesAccueil";
+import { repartirModules } from "../../components/indicateurs/modules-accueil";
+import { libellesRoles } from "../../components/shell/CadreApplication";
+import { Alerte } from "../../components/ui/Alerte";
+import { classesBouton } from "../../components/ui/Bouton";
+import { Calcule } from "../../components/ui/Calcule";
+import { Carte } from "../../components/ui/Carte";
+import { aPermission } from "@missionpilot/shared";
 import { chargerServeur } from "../../lib/api-serveur";
-import { messageBriefIndisponible, requeteBrief, type BriefApi } from "../../lib/brief";
+import {
+  CHEMIN_BRIEF,
+  messageBriefIndisponible,
+  requeteBrief,
+  titreErreurBrief,
+  type BriefApi,
+} from "../../lib/brief";
 import { formaterDate, libelleDevise } from "../../lib/format";
 import {
   alertesDerive,
@@ -25,12 +33,7 @@ import {
   type ReponseIndicateurs,
 } from "../../lib/indicateurs";
 import { obtenirLangue } from "../../lib/i18n/serveur";
-import {
-  descriptionEntree,
-  entreesAutorisees,
-  grouperEntrees,
-  libelleEntree,
-} from "../../lib/navigation";
+import { CHEMIN_SECURITE_COMPTE, entreesAutorisees } from "../../lib/navigation";
 import { aujourdhui } from "../../lib/periode";
 import { obtenirSession } from "../../lib/session";
 
@@ -43,7 +46,7 @@ export default async function TableauDeBord() {
   const langue = await obtenirLangue();
   const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const { utilisateur } = await obtenirSession();
-  const modules = entreesAutorisees(utilisateur.roles).filter((e) => e.id !== "tableau-de-bord");
+  const repartition = repartirModules(entreesAutorisees(utilisateur.roles), langue);
   // Semaine en cours (lundi au dimanche) ; jalons et feuilles évalués au plus tard aujourd'hui.
   const jour = aujourdhui();
   const periode = periodeParDefaut(jour);
@@ -62,134 +65,134 @@ export default async function TableauDeBord() {
     aPermission(utilisateur.roles, "brief.lire") ? chargerServeur<BriefApi>(requeteBrief()) : null,
   ]);
 
+  const lienPeriode = lienIndicateurs(periode);
+  const actionsReessai = (hrefDetail: string, libelleDetail: string) => (
+    <>
+      <Link href="/" prefetch={false} className={classesBouton("secondaire")}>
+        {t("Réessayer", "Try again")}
+      </Link>
+      <Link href={hrefDetail} className={classesBouton("discret")}>
+        {libelleDetail}
+      </Link>
+    </>
+  );
+
+  // Ce qui demande l'attention en premier : le brief du jour et les alertes de dérive.
+  const noeudBrief = brief ? (
+    brief.ok ? (
+      <CarteBriefAccueil brief={brief.donnees} />
+    ) : (
+      <Alerte
+        tonalite="attention"
+        titre={titreErreurBrief(brief.statut, langue)}
+        actions={actionsReessai(CHEMIN_BRIEF, t("Ouvrir mon brief", "Open my brief"))}
+      >
+        {messageBriefIndisponible(brief.statut, brief.message, langue)}
+      </Alerte>
+    )
+  ) : null;
+  const noeudAlertes =
+    pilotage && pilotage.ok ? (
+      <Carte
+        titre={t("Alertes de dérive", "Variance alerts")}
+        niveauTitre={3}
+        actions={<Calcule />}
+      >
+        <ListeAlertesDerive
+          alertes={alertesDerive(pilotage.donnees.elements as ElementMission[], langue)}
+          limite={5}
+          langue={langue}
+        />
+      </Carte>
+    ) : null;
+
   return (
-    <div className="mp-page">
+    <div className="mp-page mp-tdb">
       <header className="mp-page__entete">
         <h1 className="mp-page__titre">{t("Tableau de bord", "Dashboard")}</h1>
         <p className="mp-page__soustitre">
-          {t(
-            `Bonjour ${utilisateur.nom}. Vous êtes connecté en tant que `,
-            `Hello ${utilisateur.nom}. You are signed in as `,
-          )}
-          {libellesRoles(utilisateur.roles, langue)}.
+          {t(`Bonjour ${utilisateur.nom}.`, `Hello ${utilisateur.nom}.`)}
         </p>
       </header>
 
-      {brief ? (
-        brief.ok ? (
-          <CarteBriefAccueil brief={brief.donnees} />
-        ) : (
-          <CarteBriefIndisponible
-            message={messageBriefIndisponible(brief.statut, brief.message, langue)}
-          />
-        )
+      {noeudBrief || noeudAlertes ? (
+        <section aria-labelledby="titre-attention" className="mp-tdb-section">
+          <h2 id="titre-attention" className="mp-section__titre">
+            {t("À traiter en premier", "To handle first")}
+          </h2>
+          <div
+            className={
+              noeudBrief && noeudAlertes
+                ? "mp-tdb-attention mp-tdb-attention--double"
+                : "mp-tdb-attention"
+            }
+          >
+            {noeudBrief}
+            {noeudAlertes}
+          </div>
+        </section>
       ) : null}
 
       {pilotage ? (
-        <section aria-labelledby="titre-pilotage" className="mp-pile">
-          <h2 id="titre-pilotage" className="mp-section__titre">
-            {t("Pilotage de la semaine", "This week's overview")}
-          </h2>
+        <section aria-labelledby="titre-pilotage" className="mp-tdb-section">
+          <div className="mp-tdb-section__entete">
+            <h2 id="titre-pilotage" className="mp-section__titre">
+              {t("Pilotage de la semaine", "This week's overview")}
+            </h2>
+            {pilotage.ok ? (
+              <Link href={lienPeriode} className={classesBouton("discret")}>
+                {t("Changer de période ou de niveau", "Change the period or level")}
+              </Link>
+            ) : null}
+          </div>
           {pilotage.ok ? (
             <>
-              <MissionsEnVol elements={pilotage.donnees.elements as ElementMission[]} />
-              <Carte titre={t("Alertes de dérive", "Variance alerts")} niveauTitre={3}>
-                <ListeAlertesDerive
-                  alertes={alertesDerive(pilotage.donnees.elements as ElementMission[], langue)}
-                  limite={5}
-                  langue={langue}
-                />
-              </Carte>
               <p className="mp-texte-doux">
                 {t(
-                  `Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}. `,
-                  `From ${formaterDate(pilotage.donnees.du, "UTC", langue)} to ${formaterDate(pilotage.donnees.au, "UTC", langue)}, amounts in ${libelleDevise(pilotage.donnees.devise)}. `,
+                  `Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}.`,
+                  `From ${formaterDate(pilotage.donnees.du, "UTC", langue)} to ${formaterDate(pilotage.donnees.au, "UTC", langue)}, amounts in ${libelleDevise(pilotage.donnees.devise)}.`,
                 )}
-                <Link href={lienIndicateurs(periode)}>
-                  {t(
-                    "Changer de période ou de niveau de lecture",
-                    "Change the period or reading level",
-                  )}
-                </Link>
               </p>
-              <GrilleIndicateurs
-                indicateurs={indicateursAffiches(pilotage.donnees, langue)}
-                langue={langue}
+              <MissionsEnVol
+                elements={pilotage.donnees.elements as ElementMission[]}
+                hrefPeriode={lienPeriode}
               />
+              <div className="mp-tdb-bloc">
+                <div className="mp-tdb-bloc__entete">
+                  <h3 id="titre-indicateurs-cabinet" className="mp-tdb-bloc__titre">
+                    {t("Indicateurs du cabinet", "Firm indicators")}
+                  </h3>
+                  <Calcule />
+                </div>
+                <ListeIndicateurs
+                  indicateurs={indicateursAffiches(pilotage.donnees, langue)}
+                  langue={langue}
+                  idTitre="titre-indicateurs-cabinet"
+                />
+              </div>
             </>
           ) : (
-            <p className="mp-texte-doux">
-              {t(
-                `Indicateurs indisponibles : ${pilotage.message}`,
-                `KPIs unavailable: ${pilotage.message}`,
-              )}{" "}
-              <Link href={lienIndicateurs(periode)}>
-                {t("Ouvrir les indicateurs", "Open the KPIs")}
-              </Link>
-            </p>
+            <Alerte
+              tonalite="danger"
+              titre={t(
+                "Le pilotage de la semaine n'a pas pu être chargé.",
+                "This week's overview could not be loaded.",
+              )}
+              actions={actionsReessai(lienPeriode, t("Ouvrir les indicateurs", "Open the KPIs"))}
+            >
+              {pilotage.message}
+            </Alerte>
           )}
         </section>
       ) : null}
 
-      <section aria-labelledby="titre-modules">
-        <h2 id="titre-modules" className="mp-section__titre">
-          {t("Vos modules", "Your modules")}
-        </h2>
-        <p className="mp-texte-doux">
-          {t(
-            "Les modules accessibles avec votre rôle, regroupés par métier. Ceux marqués « Pas encore disponible » seront ouverts au fil des livraisons.",
-            'The modules available with your role, grouped by function. Those marked "Not yet available" will open as releases are delivered.',
-          )}
-        </p>
-        {modules.length === 0 ? (
-          <p>
-            {t(
-              "Votre rôle ne donne accès à aucun module pour l'instant.",
-              "Your role does not give access to any module yet.",
-            )}
-          </p>
-        ) : (
-          grouperEntrees(modules, langue).map((g) => (
-            <div key={g.id} className="mp-modules-groupe">
-              <h3 className="mp-modules-groupe__titre">{g.libelle}</h3>
-              <ul className="mp-grille-modules">
-                {g.entrees.map((m) => (
-                  <li key={m.id}>
-                    <Carte
-                      niveauTitre={4}
-                      className={m.disponible ? "mp-module" : "mp-module mp-module--indisponible"}
-                      titre={
-                        <span className="mp-module__titre">
-                          <Icone nom={m.icone} />
-                          {m.disponible ? (
-                            <Link href={m.href} className="mp-lien-etendu">
-                              {libelleEntree(m, langue)}
-                            </Link>
-                          ) : (
-                            libelleEntree(m, langue)
-                          )}
-                        </span>
-                      }
-                      actions={
-                        m.disponible ? null : (
-                          <BadgeStatut tonalite="neutre">
-                            {t("Pas encore disponible", "Not yet available")}
-                          </BadgeStatut>
-                        )
-                      }
-                    >
-                      <p>{descriptionEntree(m, langue)}</p>
-                    </Carte>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
-        )}
-      </section>
+      <ModulesAccueil repartition={repartition} langue={langue} />
 
-      <Carte titre={t("Votre compte", "Your account")} className="mp-compte">
-        <dl className="mp-liste-def">
+      <section aria-labelledby="titre-compte" className="mp-tdb-compte">
+        <h2 id="titre-compte" className="mp-tdb-compte__titre">
+          {t("Votre compte", "Your account")}
+        </h2>
+        <dl className="mp-tdb-compte__liste">
           <div>
             <dt>{t("Nom", "Name")}</dt>
             <dd>{utilisateur.nom}</dd>
@@ -203,7 +206,10 @@ export default async function TableauDeBord() {
             <dd>{libellesRoles(utilisateur.roles, langue)}</dd>
           </div>
         </dl>
-      </Carte>
+        <Link href={CHEMIN_SECURITE_COMPTE} className={classesBouton("discret")}>
+          {t("Sécurité du compte", "Account security")}
+        </Link>
+      </section>
     </div>
   );
 }

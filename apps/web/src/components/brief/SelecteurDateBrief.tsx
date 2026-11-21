@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { dateSaisieBrief, hrefBrief, libelleRejeuBrief } from "../../lib/brief";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
-import { classesBouton } from "../ui/Bouton";
+import { Bouton, classesBouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 
 /**
@@ -19,6 +19,8 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
   const router = useRouter();
   const [saisie, setSaisie] = useState(date ?? "");
   const [erreur, setErreur] = useState<string | undefined>();
+  const [enCours, demarrer] = useTransition();
+  const champ = useRef<HTMLInputElement>(null);
 
   function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,10 +32,12 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
           "Choose a valid date, between 2000 and 2100.",
         ),
       );
+      champ.current?.focus();
       return;
     }
     setErreur(undefined);
-    router.push(hrefBrief(valide));
+    // Le bouton affiche « Chargement… » tant que le serveur recalcule le brief de cette date.
+    demarrer(() => router.push(hrefBrief(valide)));
   }
 
   return (
@@ -44,6 +48,7 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
             libelle={t("Rejouer le brief à la date du", "Replay the brief as of")}
             type="date"
             name="date"
+            ref={champ}
             min="2000-01-01"
             max="2100-12-31"
             value={saisie}
@@ -52,9 +57,13 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
           />
         </div>
         <div className="mp-actions-formulaire">
-          <button type="submit" className={classesBouton("primaire")}>
+          <Bouton
+            type="submit"
+            chargement={enCours}
+            texteChargement={t("Chargement du brief…", "Loading the brief…")}
+          >
             {t("Afficher cette date", "Show this date")}
-          </button>
+          </Bouton>
           {date ? (
             <Link href={hrefBrief()} className={classesBouton("secondaire")} prefetch={false}>
               {t("Revenir à aujourd'hui", "Back to today")}

@@ -179,7 +179,14 @@ function LigneEcheance({
     f.envoyer(
       { ok: true, charge: { statut: x.statut === "prevue" ? "a_facturer" : "prevue" } },
       (c) => api.patch(chemin, c),
-      { apres: marquer, messageSpecifique: msg },
+      {
+        apres: marquer,
+        messageSpecifique: msg,
+        succes:
+          x.statut === "prevue"
+            ? t(`« ${x.libelle} » est à facturer.`, `"${x.libelle}" is marked to invoice.`)
+            : t(`« ${x.libelle} » est remise en prévue.`, `"${x.libelle}" is set back to planned.`),
+      },
     );
   return (
     <li className="mp-liste-lignes__ligne">
@@ -265,6 +272,7 @@ function LigneEcheance({
       ) : null}
       <RetourFormulaire
         erreur={f.erreurGlobale}
+        succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur={t("Action impossible", "Action not possible")}
       />

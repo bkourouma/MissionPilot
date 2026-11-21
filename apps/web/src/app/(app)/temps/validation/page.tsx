@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { creerTraduire } from "@missionpilot/shared";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../../components/ui/Bouton";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../components/ui/Tableau";
@@ -67,43 +68,76 @@ export default async function PageFeuillesAValider({
           </p>
         </EtatVide>
       ) : (
-        <Tableau
-          legende={t("Feuilles de temps soumises à valider", "Submitted timesheets to approve")}
-          lignes={liste.donnees.elements}
-          cleLigne={(f) => f.id}
-          colonnes={[
-            {
-              cle: "collaborateur",
-              entete: t("Collaborateur", "Employee"),
-              rendu: (f) => (
-                <Link href={`/temps/feuilles/${f.id}`} className="mp-lien-ligne">
-                  {f.collaborateur_nom}
-                </Link>
-              ),
-            },
-            {
-              cle: "semaine",
-              entete: t("Semaine", "Week"),
-              rendu: (f) => libelleSemaine(f.semaine, ajouterJoursIso(f.semaine, 6), langue),
-            },
-            {
-              cle: "soumise",
-              entete: t("Soumise le", "Submitted on"),
-              rendu: (f) => formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue),
-            },
-            {
-              cle: "statut",
-              entete: t("État", "Status"),
-              rendu: (f) => (
-                <BadgeStatut tonalite={statutFeuille(f.statut, langue).tonalite}>
-                  {f.cycle > 1
-                    ? t(`Resoumise (${f.cycle}e envoi)`, `Resubmitted (submission ${f.cycle})`)
-                    : statutFeuille(f.statut, langue).libelle}
-                </BadgeStatut>
-              ),
-            },
-          ]}
-        />
+        <>
+          <p className="mp-resume-file" role="status">
+            {liste.donnees.curseur_suivant
+              ? t(
+                  `${liste.donnees.elements.length} feuilles affichées, d'autres suivent.`,
+                  `${liste.donnees.elements.length} timesheets shown, more to come.`,
+                )
+              : liste.donnees.elements.length === 1
+                ? t("1 feuille à traiter.", "1 timesheet to review.")
+                : t(
+                    `${liste.donnees.elements.length} feuilles à traiter.`,
+                    `${liste.donnees.elements.length} timesheets to review.`,
+                  )}
+          </p>
+          <Tableau
+            legende={t("Feuilles de temps soumises à valider", "Submitted timesheets to approve")}
+            lignes={liste.donnees.elements}
+            cleLigne={(f) => f.id}
+            colonnes={[
+              {
+                cle: "collaborateur",
+                entete: t("Collaborateur", "Employee"),
+                rendu: (f) => (
+                  <Link href={`/temps/feuilles/${f.id}`} className="mp-lien-ligne">
+                    {f.collaborateur_nom}
+                  </Link>
+                ),
+              },
+              {
+                cle: "semaine",
+                entete: t("Semaine", "Week"),
+                rendu: (f) => libelleSemaine(f.semaine, ajouterJoursIso(f.semaine, 6), langue),
+              },
+              {
+                cle: "soumise",
+                entete: t("Soumise le", "Submitted on"),
+                rendu: (f) => formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue),
+              },
+              {
+                cle: "statut",
+                entete: t("État", "Status"),
+                rendu: (f) => (
+                  <BadgeStatut tonalite={statutFeuille(f.statut, langue).tonalite}>
+                    {f.cycle > 1
+                      ? t(`Resoumise (${f.cycle}e envoi)`, `Resubmitted (submission ${f.cycle})`)
+                      : statutFeuille(f.statut, langue).libelle}
+                  </BadgeStatut>
+                ),
+              },
+              {
+                cle: "action",
+                entete: t("Action", "Action"),
+                rendu: (f) => (
+                  <span className="mp-cellule-action">
+                    <Link
+                      href={`/temps/feuilles/${f.id}`}
+                      className={classesBouton("secondaire")}
+                      aria-label={t(
+                        `Examiner la feuille de ${f.collaborateur_nom}`,
+                        `Review ${f.collaborateur_nom}'s timesheet`,
+                      )}
+                    >
+                      {t("Examiner", "Review")}
+                    </Link>
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </>
       )}
       {liste.ok ? (
         <PaginationCurseur

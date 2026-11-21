@@ -110,7 +110,19 @@ export default async function PageComite({
           hrefReessayer={href(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre={t("Aucune proposition.", "No proposal.")} icone="bulle" />
+        <EtatVide titre={t("Aucune proposition.", "No proposal.")} icone="bulle">
+          <p>
+            {gerer
+              ? t(
+                  "Aucune évolution n'a encore été proposée. Utilisez le formulaire ci-dessus pour soumettre la première au comité.",
+                  "No change has been proposed yet. Use the form above to submit the first one to the committee.",
+                )
+              : t(
+                  "Aucune évolution n'a encore été proposée au comité méthode.",
+                  "No change has been proposed to the method committee yet.",
+                )}
+          </p>
+        </EtatVide>
       ) : (
         <ul className="mp-liste-cartes">
           {r.donnees.elements.map((p) => (

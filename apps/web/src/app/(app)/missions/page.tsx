@@ -224,12 +224,25 @@ export default async function PageMissions({
           )}
         </EtatVide>
       ) : (
-        <Tableau
-          legende={t("Liste des missions", "List of engagements")}
-          lignes={missions}
-          cleLigne={(m) => m.id}
-          colonnes={colonnes}
-        />
+        <>
+          <p className="mp-texte-doux" role="status">
+            {missions.length === 1
+              ? t(
+                  filtre ? "1 mission trouvée." : "1 mission.",
+                  filtre ? "1 engagement found." : "1 engagement.",
+                )
+              : t(
+                  `${missions.length} missions${filtre ? " trouvées" : ""}.`,
+                  `${missions.length} engagements${filtre ? " found" : ""}.`,
+                )}
+          </p>
+          <Tableau
+            legende={t("Liste des missions", "List of engagements")}
+            lignes={missions}
+            cleLigne={(m) => m.id}
+            colonnes={colonnes}
+          />
+        </>
       )}
     </div>
   );

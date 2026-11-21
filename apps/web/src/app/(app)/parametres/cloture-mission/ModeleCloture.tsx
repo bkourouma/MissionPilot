@@ -65,12 +65,22 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
               </span>
               <div className="mp-pile">
                 <CaseACocher
-                  libelle={t("Actif", "Active")}
+                  libelle={
+                    <>
+                      {t("Actif", "Active")}
+                      <span className="mp-visuellement-cache"> ({item.libelle})</span>
+                    </>
+                  }
                   checked={r.actif}
                   onChange={(e) => changer(item.controle, "actif", e.target.checked)}
                 />
                 <CaseACocher
-                  libelle={t("Bloquant", "Blocking")}
+                  libelle={
+                    <>
+                      {t("Bloquant", "Blocking")}
+                      <span className="mp-visuellement-cache"> ({item.libelle})</span>
+                    </>
+                  }
                   checked={r.bloquant}
                   disabled={!r.actif}
                   onChange={(e) => changer(item.controle, "bloquant", e.target.checked)}
@@ -86,9 +96,15 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
           chargement={f.enCours}
           texteChargement={t("Enregistrement…", "Saving…")}
           disabled={!modeleModifie(items, reglages)}
+          aria-describedby="modele-cloture-aide"
         >
           {t("Enregistrer le modèle", "Save template")}
         </Bouton>
+        <p className="mp-texte-doux" id="modele-cloture-aide">
+          {modeleModifie(items, reglages)
+            ? t("Modifications non enregistrées.", "Unsaved changes.")
+            : t("Aucune modification à enregistrer.", "No changes to save.")}
+        </p>
       </div>
     </form>
   );

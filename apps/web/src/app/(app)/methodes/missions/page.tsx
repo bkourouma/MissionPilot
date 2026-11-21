@@ -49,7 +49,14 @@ export default async function PageMissionsMethodes({
           hrefReessayer={hrefPage(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre={t("Aucune mission visible.", "No visible engagement.")} icone="dossier" />
+        <EtatVide titre={t("Aucune mission visible.", "No visible engagement.")} icone="dossier">
+          <p>
+            {t(
+              "Les missions auxquelles vous avez accès apparaîtront ici, avec la version de méthode à laquelle chacune est figée.",
+              "The engagements you can access will appear here, with the method version each one is locked to.",
+            )}
+          </p>
+        </EtatVide>
       ) : (
         <ul className="mp-liste-lignes">
           {r.donnees.elements.map((m) => (

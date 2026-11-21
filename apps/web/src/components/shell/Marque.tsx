@@ -20,12 +20,12 @@ export function SymboleMarque({ taille = 32 }: { taille?: number }) {
       <rect x="19" y="8" width="24" height="26" rx="3" fill="#e9e4f7" />
       <path
         d="M6 50C16 56 38 50 56 28"
-        stroke="#e5a72f"
+        stroke="var(--mp-or)"
         strokeWidth="4"
         fill="none"
         strokeLinecap="round"
       />
-      <path d="M52 19l10-3-5 10z" fill="#e5a72f" />
+      <path d="M52 19l10-3-5 10z" fill="var(--mp-or)" />
     </svg>
   );
 }

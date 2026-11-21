@@ -485,3 +485,18 @@
     stroke: GrayText;
   }
 }
+
+/* Marque « Calculé » (même rendu que dans les indicateurs ; la feuille d'origine n'est pas globale). */
+.mp-calcule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  padding: 0.125rem var(--mp-esp-2);
+  border-radius: 999px;
+  background: var(--mp-neutre-fond);
+  color: var(--mp-neutre);
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}

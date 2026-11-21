@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChiffresRapport } from "../../../../../../components/avancement/ChiffresRapport";
 import { EditeurRapport } from "../../../../../../components/avancement/EditeurRapport";
+import { Icone } from "../../../../../../components/ui/Icone";
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
@@ -44,7 +45,8 @@ export default async function PageRapportAvancement({
   if (!r.ok && r.statut === 404) notFound();
   const retour = (
     <Link href={hrefAvancementMission(id)} className="mp-lien-retour">
-      {t("Revenir aux rapports d'avancement", "Back to progress reports")}
+      <Icone nom="chevronGauche" taille={18} />
+      <span>{t("Revenir aux rapports d'avancement", "Back to progress reports")}</span>
     </Link>
   );
   if (!r.ok) {

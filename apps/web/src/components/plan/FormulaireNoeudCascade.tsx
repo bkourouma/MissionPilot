@@ -17,6 +17,7 @@ import {
 import { optionsResponsables, type PersonnePlan } from "../../lib/plan-elements";
 import type { Resultat } from "../../lib/saisie";
 import { useLangue, useT } from "../i18n/FournisseurLangue";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -66,7 +67,7 @@ export function FormulaireNoeudCascade({
     erreur: modifies.has(cle) && !controle[cle] ? undefined : f.erreurs[cle],
   });
 
-  async function enregistrer(retire: boolean) {
+  async function enregistrer(retire: boolean): Promise<boolean> {
     setModifies(new Set());
     const v = validerNoeud(type, s, langue);
     const validation: Resultat<Record<string, unknown>, keyof SaisieNoeud> = v.donnees
@@ -89,6 +90,7 @@ export function FormulaireNoeudCascade({
       setOuvert(false);
       if (!noeud) setS(SAISIE_NOEUD_VIDE);
     }
+    return ok;
   }
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
@@ -163,9 +165,18 @@ export function FormulaireNoeudCascade({
           {t("Enregistrer", "Save")}
         </Bouton>
         {noeud ? (
-          <Bouton variante="danger" disabled={f.enCours} onClick={() => void enregistrer(true)}>
-            {t("Retirer", "Remove")}
-          </Bouton>
+          <BoutonConfirmation
+            variante="danger"
+            libelle={t("Retirer", "Remove")}
+            ariaLabel={t(`Retirer : ${noeud.titre}`, `Remove: ${noeud.titre}`)}
+            question={t(
+              "Retirer ce contenu de la cascade ? Il reste dans l'historique des versions.",
+              "Remove this item from the cascade? It stays in the version history.",
+            )}
+            libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+            texteChargement={t("Retrait…", "Removing…")}
+            action={() => enregistrer(true)}
+          />
         ) : null}
         <Bouton
           variante="secondaire"

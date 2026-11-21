@@ -28,6 +28,7 @@ import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { PieceCabinet } from "./PieceCabinet";
 import "./salle.css";
 
@@ -57,6 +58,9 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
   const [echeance, setEcheance] = useState(demande.echeance ?? "");
   const [erreurChampEcheance, setErreurChampEcheance] = useState<string | null>(null);
   const [nouvellePiece, setNouvellePiece] = useState("");
+  const [modeleOuvert, setModeleOuvert] = useState(false);
+  const [nomModele, setNomModele] = useState(demande.titre);
+  const [erreurNomModele, setErreurNomModele] = useState<string | null>(null);
   const statut = statutDemande(demande.statut, langue);
   const chemin = cheminDemande(missionId, demande.id);
 
@@ -108,35 +112,25 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
   }
 
   async function supprimer() {
-    if (
-      !window.confirm(
-        t("Supprimer ce brouillon et ses pièces ?", "Delete this draft and its documents?"),
-      )
-    )
-      return;
-    if (await agir(() => api.supprimer(chemin))) router.push(hrefSalle(missionId));
+    const ok = await agir(() => api.supprimer(chemin));
+    if (ok) router.push(hrefSalle(missionId));
+    return ok;
   }
 
   async function clore() {
-    if (
-      !window.confirm(
-        t(
-          "Clore la demande ? Le client ne pourra plus rien y déposer.",
-          "Close the request? The client will no longer be able to upload anything to it.",
-        ),
-      )
-    )
-      return;
-    await agir(() => api.post(`${chemin}/cloturer`, {}), t("Demande close.", "Request closed."));
+    return agir(() => api.post(`${chemin}/cloturer`, {}), t("Demande close.", "Request closed."));
   }
 
   async function enregistrerModele() {
-    const nom = window.prompt(t("Nom du modèle", "Template name"), demande.titre);
-    if (!nom || nom.trim() === "") return;
-    await agir(
+    const nom = nomModele.trim();
+    if (nom === "") {
+      setErreurNomModele(t("Saisissez un nom de modèle.", "Enter a template name."));
+      return;
+    }
+    const ok = await agir(
       () =>
         api.post("/api/salle/modeles", {
-          nom: nom.trim(),
+          nom,
           pieces: demande.pieces.map((p) => ({
             libelle: p.libelle,
             description: p.description,
@@ -148,6 +142,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
         "Template saved: it will be offered for your next requests.",
       ),
     );
+    if (ok) setModeleOuvert(false);
   }
 
   const depassee = echeanceDepassee(demande, aujourdhui);
@@ -285,31 +280,75 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
             />
           ) : null}
           {actions.clore ? (
-            <Bouton variante="discret" disabled={occupe} onClick={() => void clore()}>
-              {t("Clore la demande", "Close the request")}
-            </Bouton>
+            <BoutonConfirmation
+              libelle={t("Clore la demande", "Close the request")}
+              variante="discret"
+              question={t(
+                "Clore la demande ? Le client ne pourra plus rien y déposer.",
+                "Close the request? The client will no longer be able to upload anything to it.",
+              )}
+              libelleConfirmation={t("Oui, clore", "Yes, close")}
+              texteChargement={t("Clôture…", "Closing…")}
+              action={clore}
+            />
           ) : null}
           {actions.supprimer ? (
-            <Bouton
+            <BoutonConfirmation
+              libelle={t("Supprimer le brouillon", "Delete the draft")}
               variante="danger"
               icone="corbeille"
-              disabled={occupe}
-              onClick={() => void supprimer()}
-            >
-              {t("Supprimer le brouillon", "Delete the draft")}
-            </Bouton>
+              question={t(
+                "Supprimer ce brouillon et ses pièces ? Cette action est définitive.",
+                "Delete this draft and its documents? This cannot be undone.",
+              )}
+              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+              texteChargement={t("Suppression…", "Deleting…")}
+              action={supprimer}
+            />
           ) : null}
           {contexte.gerer && demande.pieces.length > 0 ? (
             <Bouton
               variante="discret"
               icone="copie"
               disabled={occupe}
-              onClick={() => void enregistrerModele()}
+              aria-expanded={modeleOuvert}
+              onClick={() => setModeleOuvert((o) => !o)}
             >
               {t("Enregistrer comme modèle", "Save as template")}
             </Bouton>
           ) : null}
         </div>
+        {modeleOuvert ? (
+          <form
+            className="mp-salle__actions"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void enregistrerModele();
+            }}
+          >
+            <Champ
+              libelle={t("Nom du modèle", "Template name")}
+              value={nomModele}
+              maxLength={200}
+              erreur={erreurNomModele ?? undefined}
+              autoFocus
+              onChange={(e) => {
+                setNomModele(e.target.value);
+                setErreurNomModele(null);
+              }}
+            />
+            <Bouton
+              type="submit"
+              chargement={occupe}
+              texteChargement={t("Enregistrement…", "Saving…")}
+            >
+              {t("Enregistrer", "Save")}
+            </Bouton>
+            <Bouton variante="discret" disabled={occupe} onClick={() => setModeleOuvert(false)}>
+              {t("Annuler", "Cancel")}
+            </Bouton>
+          </form>
+        ) : null}
       </section>
 
       <section className="mp-pile" aria-labelledby="pieces-titre">

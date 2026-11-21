@@ -24,6 +24,7 @@ import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
+import { Icone } from "../ui/Icone";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { ChoixAudio } from "./ChoixAudio";
@@ -210,8 +211,15 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
         )}
         checked={consenti}
         onChange={(e) => setConsenti(e.target.checked)}
+        aria-invalid={f.erreurs.consenti ? true : undefined}
+        aria-describedby={f.erreurs.consenti ? "erreur-consentement" : undefined}
       />
-      {f.erreurs.consenti ? <p className="mp-champ__erreur">{f.erreurs.consenti}</p> : null}
+      {f.erreurs.consenti ? (
+        <p id="erreur-consentement" className="mp-champ__erreur" role="alert">
+          <Icone nom="attention" taille={16} />
+          <span>{f.erreurs.consenti}</span>
+        </p>
+      ) : null}
       <ZoneTexte
         libelle={t("Référence du consentement", "Consent reference")}
         required

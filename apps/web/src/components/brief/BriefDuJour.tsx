@@ -82,18 +82,3 @@ export async function CarteBriefAccueil({ brief }: { brief: BriefApi }) {
     </Carte>
   );
 }
-
-/** Carte du tableau de bord quand le brief n'a pas pu être chargé : l'accueil reste utilisable. */
-export async function CarteBriefIndisponible({ message }: { message: string }) {
-  const t = await obtenirT();
-  return (
-    <Carte titre={t("Brief du jour", "Today's brief")} niveauTitre={3}>
-      <p className="mp-texte-doux">
-        {t(`Brief indisponible : ${message}`, `Brief unavailable: ${message}`)}
-      </p>
-      <p>
-        <Link href={CHEMIN_BRIEF}>{t("Ouvrir mon brief", "Open my brief")}</Link>
-      </p>
-    </Carte>
-  );
-}

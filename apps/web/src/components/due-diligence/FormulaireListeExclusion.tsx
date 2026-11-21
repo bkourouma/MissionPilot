@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import {
   cheminListesExclusion,
@@ -75,6 +75,21 @@ export function FormulaireListeExclusion({
         }
       : { nom: "", client_id: "", reference_cadre: "", regles: [saisieRegleVide()], motif: "" },
   );
+  const refListe = useRef<HTMLFieldSetElement>(null);
+  const refAjout = useRef<HTMLButtonElement>(null);
+  const focusApres = useRef<number | "ajout" | null>(null);
+
+  // Focus au bon endroit : sur le premier champ de l'élément ajouté, ou sur « Ajouter » après un retrait.
+  useEffect(() => {
+    const cible = focusApres.current;
+    if (cible === null) return;
+    focusApres.current = null;
+    if (cible === "ajout") refAjout.current?.focus();
+    else {
+      const elements = refListe.current?.querySelectorAll<HTMLElement>(".mp-regle");
+      elements?.item(cible)?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+    }
+  }, [s.regles.length]);
   const maj = (p: Partial<SaisieListe>) => setS((x) => ({ ...x, ...p }));
   const majRegle = (i: number, p: Partial<SaisieRegle>) =>
     setS((x) => ({ ...x, regles: x.regles.map((r, j) => (j === i ? { ...r, ...p } : r)) }));
@@ -165,7 +180,7 @@ export function FormulaireListeExclusion({
           <p>{f.erreurs.regles}</p>
         </Alerte>
       ) : null}
-      <fieldset className="mp-groupe">
+      <fieldset className="mp-groupe" ref={refListe}>
         <legend className="mp-champ__libelle">{t("Règles d'exclusion", "Exclusion rules")}</legend>
         {s.regles.map((r, i) => (
           <div key={r.code !== "" ? r.code : `nouvelle-${i}`} className="mp-regle">
@@ -203,7 +218,10 @@ export function FormulaireListeExclusion({
             <div>
               <Bouton
                 variante="discret"
-                onClick={() => setS((x) => ({ ...x, regles: x.regles.filter((_, j) => j !== i) }))}
+                onClick={() => {
+                  focusApres.current = "ajout";
+                  setS((x) => ({ ...x, regles: x.regles.filter((_, j) => j !== i) }));
+                }}
                 aria-label={t(`Retirer la règle ${i + 1}`, `Remove rule ${i + 1}`)}
               >
                 {t("Retirer la règle", "Remove the rule")}
@@ -213,9 +231,13 @@ export function FormulaireListeExclusion({
         ))}
         <div>
           <Bouton
+            ref={refAjout}
             variante="secondaire"
             icone="plus"
-            onClick={() => setS((x) => ({ ...x, regles: [...x.regles, saisieRegleVide()] }))}
+            onClick={() => {
+              focusApres.current = s.regles.length;
+              setS((x) => ({ ...x, regles: [...x.regles, saisieRegleVide()] }));
+            }}
           >
             {t("Ajouter une règle", "Add a rule")}
           </Bouton>

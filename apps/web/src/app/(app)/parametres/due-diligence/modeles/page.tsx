@@ -3,9 +3,11 @@ import { FormulaireModeleSecteur } from "../../../../../components/due-diligence
 import { HistoriqueModele } from "../../../../../components/due-diligence/HistoriqueModele";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
+import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
+import { Icone } from "../../../../../components/ui/Icone";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { droitsDd, libelleTaxonomie, type PageDd } from "../../../../../lib/due-diligence";
 import {
@@ -72,6 +74,14 @@ export default async function PageModelesSecteurDd({
           "Points à examiner par secteur et par analyse, rédigés par les experts du cabinet. Ce sont des rappels : ils n'ajoutent aucune affirmation au dossier.",
           "Points to examine by sector and by analysis, written by the firm's experts. They are reminders: they add no statement to the file.",
         )}
+        actions={
+          droits.gererReferentiel ? (
+            <a href="#nouveau-modele" className={classesBouton("primaire")}>
+              <Icone nom="plus" />
+              <span>{t("Nouveau modèle", "New template")}</span>
+            </a>
+          ) : undefined
+        }
       />
       {taxonomies.erreur ? (
         <Alerte
@@ -166,7 +176,7 @@ export default async function PageModelesSecteurDd({
       )}
 
       {droits.gererReferentiel ? (
-        <Carte titre={t("Nouveau modèle", "New template")}>
+        <Carte titre={t("Nouveau modèle", "New template")} id="nouveau-modele">
           <FormulaireModeleSecteur secteurs={taxonomies.secteurs} />
         </Carte>
       ) : (

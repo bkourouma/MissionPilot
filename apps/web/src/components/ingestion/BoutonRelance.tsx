@@ -4,6 +4,7 @@ import "./ingestion.css";
 
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
+import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { useT } from "../i18n/FournisseurLangue";
 import { messageErreur, relancerDocumentIngestion, type ApiIngestion } from "../../lib/ingestion";
@@ -61,7 +62,11 @@ export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
       <p role="status" aria-live="polite" className="mp-ing-meta">
         {message}
       </p>
-      {echec ? <p role="alert">{echec}</p> : null}
+      {echec ? (
+        <Alerte tonalite="danger" titre={t("Relance impossible", "Could not restart")}>
+          <p>{echec}</p>
+        </Alerte>
+      ) : null}
     </div>
   );
 }

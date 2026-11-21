@@ -10,6 +10,7 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/
 import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
+import { SegmentsStatut } from "../../../components/facturation/SegmentsStatut";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
 import {
@@ -24,6 +25,7 @@ import {
   requeteFactures,
   STATUT_FACTURE,
   type Facture,
+  type FiltresFactures,
 } from "../../../lib/factures";
 import { chargerPaiements } from "../../../lib/finance-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../lib/format";
@@ -103,6 +105,14 @@ export default async function PageFacturation({
           "The firm's invoices and credit notes: drafts, approval, issuance and sending. An invoice is prepared from the Billing tab of its engagement.",
         )}
       />
+      <SegmentsStatut
+        statut={filtres.statut}
+        options={optionsStatutsFacture(langue)}
+        href={(statut) =>
+          hrefFactures({ ...filtres, statut: statut as FiltresFactures["statut"] }, null)
+        }
+        libelle={t("Filtrer par statut", "Filter by status")}
+      />
       <form
         method="get"
         action="/facturation"
@@ -110,14 +120,8 @@ export default async function PageFacturation({
         role="search"
         aria-label={t("Filtrer les factures", "Filter invoices")}
       >
+        {filtres.statut ? <input type="hidden" name="statut" value={filtres.statut} /> : null}
         <div className="mp-grille-champs mp-grille-champs--filtres">
-          <Select
-            libelle={t("Statut", "Status")}
-            name="statut"
-            options={optionsStatutsFacture(langue)}
-            invite={t("Tous les statuts", "All statuses")}
-            defaultValue={filtres.statut}
-          />
           <Select
             libelle={t("Nature", "Type")}
             name="nature"
@@ -174,6 +178,17 @@ export default async function PageFacturation({
               : t("Aucune facture pour l'instant.", "No invoices yet.")
           }
           icone="facture"
+          action={
+            filtresActifs(filtres) ? (
+              <Link href="/facturation" className={classesBouton("secondaire")}>
+                {t("Effacer les filtres", "Clear filters")}
+              </Link>
+            ) : aPermission(roles, "mission.lire") ? (
+              <Link href="/missions" className={classesBouton("secondaire")}>
+                {t("Ouvrir les missions", "Open engagements")}
+              </Link>
+            ) : undefined
+          }
         >
           <p>
             {t(
@@ -183,72 +198,74 @@ export default async function PageFacturation({
           </p>
         </EtatVide>
       ) : (
-        <Tableau
-          legende={t("Factures et avoirs", "Invoices and credit notes")}
-          lignes={factures}
-          cleLigne={(f) => f.id}
-          colonnes={[
-            {
-              cle: "numero",
-              entete: t("Facture", "Invoice"),
-              rendu: (f) => (
-                <Link href={`/facturation/${f.id}`} className="mp-sans-coupure">
-                  {designationFacture(f, langue)}
-                </Link>
-              ),
-            },
-            {
-              cle: "client",
-              entete: t("Client", "Client"),
-              rendu: (f) => f.client_raison_sociale,
-            },
-            {
-              cle: "mission",
-              entete: t("Mission", "Engagement"),
-              rendu: (f) => f.mission_intitule,
-            },
-            {
-              cle: "periode",
-              entete: t("Période", "Period"),
-              rendu: (f) => periode(f, langue),
-            },
-            {
-              cle: "net",
-              entete: t("Net à payer", "Net payable"),
-              alignement: "droite",
-              rendu: (f) => (
-                <span className="mp-montant">
-                  {formaterMontantMineur(f.net_a_payer, f.devise, langue)}
-                </span>
-              ),
-            },
-            {
-              cle: "statut",
-              entete: t("Statut", "Status"),
-              rendu: (f) => (
-                <BadgeStatut tonalite={STATUT_FACTURE[f.statut].tonalite}>
-                  {f.statut === "emise" && f.envoyee_le
-                    ? t("Émise et envoyée", "Issued and sent")
-                    : libelleStatutFacture(f.statut, langue)}
-                </BadgeStatut>
-              ),
-            },
-            {
-              cle: "paiement",
-              entete: t("Paiement", "Payment"),
-              rendu: (f) => {
-                const p = paiements.get(f.id);
-                return p?.statut_paiement ? (
-                  <BadgePaiement statut={p.statut_paiement} joursRetard={p.jours_retard} />
-                ) : (
-                  <span className="mp-texte-doux">
-                    {f.nature === "avoir" ? t("Sans objet", "Not applicable") : "—"}
-                  </span>
-                );
+        <div className="mp-chiffres mp-tableau-cliquable">
+          <Tableau
+            legende={t("Factures et avoirs", "Invoices and credit notes")}
+            lignes={factures}
+            cleLigne={(f) => f.id}
+            colonnes={[
+              {
+                cle: "numero",
+                entete: t("Facture", "Invoice"),
+                rendu: (f) => (
+                  <Link href={`/facturation/${f.id}`} className="mp-sans-coupure mp-lien-ligne">
+                    {designationFacture(f, langue)}
+                  </Link>
+                ),
               },
-            },
-          ]}
-        />
+              {
+                cle: "client",
+                entete: t("Client", "Client"),
+                rendu: (f) => f.client_raison_sociale,
+              },
+              {
+                cle: "mission",
+                entete: t("Mission", "Engagement"),
+                rendu: (f) => f.mission_intitule,
+              },
+              {
+                cle: "periode",
+                entete: t("Période", "Period"),
+                rendu: (f) => periode(f, langue),
+              },
+              {
+                cle: "net",
+                entete: t("Net à payer", "Net payable"),
+                alignement: "droite",
+                rendu: (f) => (
+                  <span className="mp-montant">
+                    {formaterMontantMineur(f.net_a_payer, f.devise, langue)}
+                  </span>
+                ),
+              },
+              {
+                cle: "statut",
+                entete: t("Statut", "Status"),
+                rendu: (f) => (
+                  <BadgeStatut tonalite={STATUT_FACTURE[f.statut].tonalite}>
+                    {f.statut === "emise" && f.envoyee_le
+                      ? t("Émise et envoyée", "Issued and sent")
+                      : libelleStatutFacture(f.statut, langue)}
+                  </BadgeStatut>
+                ),
+              },
+              {
+                cle: "paiement",
+                entete: t("Paiement", "Payment"),
+                rendu: (f) => {
+                  const p = paiements.get(f.id);
+                  return p?.statut_paiement ? (
+                    <BadgePaiement statut={p.statut_paiement} joursRetard={p.jours_retard} />
+                  ) : (
+                    <span className="mp-texte-doux">
+                      {f.nature === "avoir" ? t("Sans objet", "Not applicable") : "—"}
+                    </span>
+                  );
+                },
+              },
+            ]}
+          />
+        </div>
       )}
       {r.ok ? (
         <PaginationCurseur
